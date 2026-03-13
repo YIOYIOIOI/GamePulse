@@ -1,0 +1,99 @@
+# AI-Powered GPI System Configuration
+
+# Steam API Configuration
+steam:
+  api_key: ""  # 可选，留空将使用公开API
+  base_url: "https://store.steampowered.com"
+  review_url: "https://store.steampowered.com/appreviews/{app_id}"
+  request_timeout: 60
+  request_delay: 2  # 请求间隔（秒）
+  max_retries: 5
+
+# 数据采集配置
+data_collection:
+  max_reviews_per_game: 20000  # 每款游戏最多采集评论数
+  languages: ["english", "schinese"]  # 采集的语言
+  review_type: "all"  # all/positive/negative
+  purchase_type: "all"  # all/steam/non_steam
+
+  # 目标游戏列表 (App ID)
+  target_games:
+    - app_id: 1091500
+      name: "Cyberpunk 2077"
+    - app_id: 1086940
+      name: "Baldur's Gate 3"
+    - app_id: 1245620
+      name: "Elden Ring"
+    - app_id: 570
+      name: "DOTA 2"
+
+# 数据清洗配置
+data_processing:
+  min_review_length: 20  # 最小评论长度（字符）
+  remove_duplicates: true
+  remove_spam: true
+  language_filter: ["en", "zh"]
+
+# 情绪分析配置
+sentiment_analysis:
+  use_transformer: true  # 启用深度学习模型（BERT-based）
+  model_name: "distilbert-base-uncased-finetuned-sst-2-english"
+  batch_size: 32
+  confidence_threshold: 0.6
+  use_gpu: false  # 如果有NVIDIA GPU可以改为true
+
+# 主题分析配置
+topic_analysis:
+  method: "lda"  # lda/nmf/bert
+  num_topics: 10
+  max_features: 5000
+  ngram_range: [1, 2]
+  min_df: 5
+  max_df: 0.8
+
+# 玩家群体分群配置
+player_segmentation:
+  time_based:
+    new_player: [0, 10]      # 0-10 小时
+    regular_player: [10, 100]  # 10-100 小时
+    hardcore_player: [100, 999999]  # 100+ 小时
+
+# LLM 配置
+llm:
+  provider: "openai"  # openai/anthropic
+
+  # OpenAI 配置
+  openai:
+    api_key: ""  # 在 .env 文件中设置
+    model: "gpt-4"
+    temperature: 0.7
+    max_tokens: 2000
+
+  # Anthropic 配置
+  anthropic:
+    api_key: ""  # 在 .env 文件中设置
+    model: "claude-3-opus-20240229"
+    temperature: 0.7
+    max_tokens: 2000
+
+# 分析输出配置
+output:
+  save_format: ["csv", "json", "excel"]
+  report_language: "zh"  # zh/en
+  generate_plots: true
+  plot_format: "png"
+  dpi: 300
+
+# 可视化配置
+visualization:
+  theme: "plotly_white"
+  color_scheme: "viridis"
+  figure_width: 1200
+  figure_height: 600
+
+# 日志配置
+logging:
+  level: "INFO"  # DEBUG/INFO/WARNING/ERROR
+  log_to_file: true
+  log_file: "logs/gpi_system.log"
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
