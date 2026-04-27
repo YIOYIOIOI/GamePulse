@@ -54,9 +54,11 @@ def _search_attempts(query: str):
     alias_queries = {
         "永劫无间": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
         "永劫": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
+        "守望": ["守望", "守望先锋", "Overwatch", "Overwatch 2"],
+        "守望先锋": ["守望先锋", "守望", "Overwatch", "Overwatch 2"],
     }
     queries = alias_queries.get((query or "").strip(), [(query or "").strip()])
-    locales = [("US", "english"), ("CN", "schinese")]
+    locales = [("US", "english"), ("CN", "schinese"), ("TW", "tchinese"), ("JP", "japanese")]
     seen = set()
     attempts = []
     for q in queries:
@@ -177,18 +179,24 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._event({"stage": "attempt-error", "percent": percent, "message": f"该路径失败，继续尝试：{exc.__class__.__name__}"})
                 continue
-            for item in batch:
+            for rank, item in enumerate(batch):
                 app_id = item["app_id"]
                 if app_id in seen_app_ids:
                     continue
+                item["_search_rank"] = rank
+                item["_matched_query"] = q
+                item["_matched_locale"] = f"{country}/{language}"
                 seen_app_ids.add(app_id)
                 merged.append(item)
-                self._event({"stage": "result", "percent": min(90, percent + 8), "rows": len(merged), "message": f"已找到 {len(merged)} 个候选游戏。"})
-                if len(merged) >= limit:
-                    break
-            if len(merged) >= limit:
-                break
-        self._event({"done": True, "ok": True, "percent": 100, "rows": len(merged), "results": merged, "message": f"搜索完成：{len(merged)} 个候选游戏。"})
+                self._event({"stage": "result", "percent": min(92, percent + 8), "rows": len(merged), "message": f"已整合 {len(merged)} 个候选游戏。"})
+        query_lower = query.lower()
+        def score(item):
+            name = str(item.get("name", "")).lower()
+            exact = 0 if name == query_lower else 1
+            contains = 0 if query_lower and query_lower in name else 1
+            return (exact, contains, int(item.get("_search_rank", 999)), str(item.get("name", "")))
+        merged = sorted(merged, key=score)[:limit]
+        self._event({"done": True, "ok": True, "percent": 100, "rows": len(merged), "results": merged, "message": f"已整合全频道搜索结果：{len(merged)} 个候选游戏。"})
 
     def _stream_reviews(self, payload):
         self._begin_ndjson()

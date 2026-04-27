@@ -66,10 +66,12 @@ def search_steam_apps(query: str, limit: int = 10, country: str = "US", language
     alias_queries = {
         "永劫无间": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
         "永劫": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
+        "守望": ["守望", "守望先锋", "Overwatch", "Overwatch 2"],
+        "守望先锋": ["守望先锋", "守望", "Overwatch", "Overwatch 2"],
     }
     queries = alias_queries.get(query, [query])
     locale_attempts = []
-    for cc, lang in [(country, language), ("CN", "schinese"), ("US", "english")]:
+    for cc, lang in [(country, language), ("CN", "schinese"), ("US", "english"), ("TW", "tchinese"), ("JP", "japanese")]:
         if (cc, lang) not in locale_attempts:
             locale_attempts.append((cc, lang))
 
@@ -88,18 +90,24 @@ def search_steam_apps(query: str, limit: int = 10, country: str = "US", language
             except ValueError as exc:
                 last_error = exc
                 continue
-            for item in batch:
+            for rank, item in enumerate(batch):
                 app_id = item["app_id"]
                 if app_id in seen_app_ids:
                     continue
+                item["_search_rank"] = rank
+                item["_matched_query"] = q
+                item["_matched_locale"] = f"{cc}/{lang}"
                 seen_app_ids.add(app_id)
                 merged.append(item)
-                if len(merged) >= limit:
-                    break
-            if len(merged) >= limit:
-                break
-        if len(merged) >= limit:
-            break
+
+    query_lower = query.lower()
+    def score(item: Dict[str, object]) -> tuple:
+        name = str(item.get("name", "")).lower()
+        exact = 0 if name == query_lower else 1
+        contains = 0 if query_lower and query_lower in name else 1
+        return (exact, contains, int(item.get("_search_rank", 999)), str(item.get("name", "")))
+
+    merged = sorted(merged, key=score)[:limit]
 
     status["attempts"] = attempts
     status["ok"] = True
