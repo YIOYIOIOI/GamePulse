@@ -66,12 +66,22 @@ export async function fetchSteamReviews(options: SteamFetchOptions) {
 }
 
 export async function fetchSteamReviewsWithProgress(options: SteamFetchOptions, onEvent: (event: ProgressEvent) => void) {
-  const payload = await postProgressStream<ProgressEvent & { reviews?: unknown[] }>(`${API_BASE}/api/steam/reviews/stream`, {
-    appId: options.appId,
-    gameName: options.gameName,
-    count: options.count,
-    language: options.language || 'all',
-    reviewType: options.reviewType || 'all',
-  }, onEvent);
-  return payload.reviews || [];
+  try {
+    const payload = await postProgressStream<ProgressEvent & { reviews?: unknown[] }>(`${API_BASE}/api/steam/reviews/stream`, {
+      appId: options.appId,
+      gameName: options.gameName,
+      count: options.count,
+      language: options.language || 'all',
+      reviewType: options.reviewType || 'all',
+    }, onEvent);
+    return payload.reviews || [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const shouldFallback = message.includes('Not found') || message.includes('HTTP 404') || message.includes('服务端没有返回完成事件');
+    if (!shouldFallback) throw error;
+    onEvent({ stage: 'fallback', percent: 10, message: '当前本地服务未启用新版采集进度接口，正在切回兼容采集...' });
+    const reviews = await fetchSteamReviews(options);
+    onEvent({ done: true, ok: true, percent: 100, rows: reviews.length, message: `采集完成：${reviews.length} 条评论。`, reviews });
+    return reviews;
+  }
 }
