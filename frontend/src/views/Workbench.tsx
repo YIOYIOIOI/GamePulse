@@ -11,15 +11,15 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
         <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-300 rounded-2xl flex items-center justify-center mb-6 transition-colors">
           <Database className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">No Data Available</h2>
+        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">暂无数据</h2>
         <p className="text-zinc-500 dark:text-zinc-300 max-w-md mx-auto mb-8">
-          The workbench requires player feedback to generate insights. Please connect to a data source to begin.
+          运营工作台需要玩家反馈数据才能生成洞察。请先连接数据源。
         </p>
         <button
           onClick={() => onChangeView('data-center')}
           className="bg-black dark:bg-white text-white dark:text-zinc-900 px-6 py-2.5 rounded-full font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
         >
-          Go to Data Center
+          前往数据中心
         </button>
       </div>
     );
@@ -36,18 +36,18 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
   const suggestions = [];
   if (negRatio > 40) {
     suggestions.push({
-      title: 'High Negative Community Sentiment',
-      basis: `${negRatio.toFixed(1)}% of recent feedback is negative.`,
-      action: 'Prioritize bug fixes or immediate communication regarding top issues.',
-      risk: 'High churn if unaddressed.',
+      title: '社区负向情绪偏高',
+      basis: `${negRatio.toFixed(1)}% 的近期反馈为负向。`,
+      action: '优先修复核心问题，或围绕高频问题进行即时沟通。',
+      risk: '若不处理，可能带来较高流失风险。',
       type: 'danger'
     });
   } else if (posRatio > 70) {
     suggestions.push({
-      title: 'Strong Positive Word of Mouth',
-      basis: `${posRatio.toFixed(1)}% positive sentiment.`,
-      action: 'Leverage momentum for community events or expansions.',
-      risk: 'Monitor for sudden shifts from update fatigue.',
+      title: '正向口碑较强',
+      basis: `${posRatio.toFixed(1)}% 为正向情绪。`,
+      action: '可顺势推进社区活动或内容扩展。',
+      risk: '注意监测更新疲劳带来的情绪转向。',
       type: 'success'
     });
   }
@@ -62,20 +62,20 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
   const topNegTopic = Object.entries(negTopics).sort((a: [string, unknown], b: [string, unknown]) => (b[1] as number) - (a[1] as number))[0];
   if (topNegTopic && (topNegTopic[1] as number) > (negativeReviews * 0.2)) {
     suggestions.push({
-      title: `Critical Pain Point: ${topNegTopic[0]}`,
-      basis: `${topNegTopic[1]} complaints directly mention this.`,
-      action: `Review 'Touch Strategy' tool for template responses to ${topNegTopic[0]} issues.`,
-      risk: 'Focusing on marketing while core issue persists will amplify backlash.',
+      title: `关键痛点： ${topNegTopic[0]}`,
+      basis: `${topNegTopic[1]} 条负向反馈直接提到该问题。`,
+      action: `查看“触达策略”模块，生成面向该问题的回应模板： ${topNegTopic[0]} 。`,
+      risk: '核心问题未解决时继续强推营销，可能放大反噬。',
       type: 'warning'
     });
   }
 
   if (suggestions.length === 0) {
     suggestions.push({
-      title: 'Stable Operations',
-      basis: 'No critical anomalies in sentiment structure.',
-      action: 'Continue monitoring. Explore Player Segmentation for micro-optimizations.',
-      risk: 'None currently.',
+      title: '运营状态稳定',
+      basis: '当前情绪结构未发现关键异常。',
+      action: '继续监控；可进入玩家分层模块做精细化优化。',
+      risk: '当前无明显风险。',
       type: 'info'
     });
   }
@@ -83,14 +83,14 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
   return (
     <div className="py-12 px-8">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">Workbench</h1>
-        <p className="text-zinc-500 dark:text-zinc-300">Operational overview and actionable insights.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">运营工作台</h1>
+        <p className="text-zinc-500 dark:text-zinc-300">运营概览与可执行洞察。</p>
       </div>
 
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
         <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 shadow-sm transition-colors">
-          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">Health Score</div>
+          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">健康分</div>
           <div className="flex items-end gap-2">
             <span className={clsx("text-4xl font-light font-mono", healthScore > 70 ? "text-emerald-500" : healthScore > 40 ? "text-amber-500" : "text-red-500")}>
               {healthScore}
@@ -99,27 +99,27 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
           </div>
         </div>
         <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 shadow-sm transition-colors">
-          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">Positive Sentiment</div>
+          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">正向情绪</div>
           <div className="text-4xl font-light font-mono text-zinc-900 dark:text-zinc-100">{posRatio.toFixed(1)}%</div>
-          <div className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">Based on {positiveReviews} reviews</div>
+          <div className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">基于 {positiveReviews} 条评论</div>
         </div>
         <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 shadow-sm transition-colors">
-          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">Risk Factor</div>
+          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">风险因子</div>
           <div className="text-4xl font-light font-mono text-zinc-900 dark:text-zinc-100">{negRatio.toFixed(1)}%</div>
-           <div className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">Based on {negativeReviews} reviews</div>
+           <div className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">基于 {negativeReviews} 条评论</div>
         </div>
         <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 shadow-sm transition-colors">
-          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">Games Tracked</div>
+          <div className="text-xs text-zinc-500 dark:text-zinc-300 uppercase font-bold tracking-wider mb-2">监控游戏</div>
           <div className="flex items-end gap-2">
              <span className="text-4xl font-light font-mono text-zinc-900 dark:text-zinc-100">{status.gamesCount}</span>
           </div>
           {status.gamesCount > 1 && (
-            <div className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-2">Supports Competitor Analysis</div>
+            <div className="text-xs text-blue-500 dark:text-blue-400 font-medium mt-2">支持竞品分析</div>
           )}
         </div>
       </div>
 
-      <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-6">Actionable Suggestions</h2>
+      <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-6">行动建议</h2>
 
       <div className="space-y-4">
         {suggestions.map((s, i) => (
@@ -134,15 +134,15 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{s.title}</h3>
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                  <div>
-                   <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 dark:text-zinc-300 mb-1">Data Basis</div>
+                   <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 dark:text-zinc-300 mb-1">数据依据</div>
                    <div className="text-sm text-zinc-700 dark:text-zinc-300">{s.basis}</div>
                  </div>
                  <div>
-                   <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 dark:text-zinc-300 mb-1">Recommended Action</div>
+                   <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 dark:text-zinc-300 mb-1">建议动作</div>
                    <div className="text-sm text-zinc-700 dark:text-zinc-300">{s.action}</div>
                  </div>
                  <div>
-                   <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 dark:text-zinc-300 mb-1">Risk / Notice</div>
+                   <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 dark:text-zinc-300 mb-1">风险 / 注意事项</div>
                    <div className="text-sm text-zinc-700 dark:text-zinc-300">{s.risk}</div>
                  </div>
                </div>

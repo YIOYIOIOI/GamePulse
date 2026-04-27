@@ -12,7 +12,7 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
         <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-300 rounded-2xl flex items-center justify-center mb-6">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Needs More Data</h2>
+        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">需要更多数据</h2>
         <p className="text-zinc-500 dark:text-zinc-300 max-w-md mx-auto mb-8">
           Competitor analysis requires data from at least two different games. Please append another dataset.
         </p>
@@ -61,8 +61,8 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
     <div className="py-12 px-8">
       <div className="mb-10 flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">Competitor Analysis</h1>
-          <p className="text-zinc-500 dark:text-zinc-300">Cross-game structural comparison of player sentiment and pain points.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">竞品分析</h1>
+          <p className="text-zinc-500 dark:text-zinc-300">跨游戏比较玩家情绪结构与主要痛点。</p>
         </div>
         <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50 px-3 py-1.5 rounded-lg text-xs font-mono font-medium">
           {games.length} Games Compared
@@ -73,7 +73,7 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
 
         {/* Chart */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50 lg:col-span-2">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">Sentiment Structure Comparison</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">情绪结构对比</h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
@@ -91,11 +91,11 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
 
         {/* Highlights */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50 flex flex-col justify-center">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">Key Observations</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">关键观察</h2>
 
             <div className="space-y-6">
                <div>
-                  <div className="text-xs text-zinc-400 dark:text-zinc-300 mb-1">Highest Positive Word-of-Mouth</div>
+                  <div className="text-xs text-zinc-400 dark:text-zinc-300 mb-1">正向口碑最高</div>
                   <div className="font-semibold text-lg text-zinc-900 dark:text-zinc-100 border-l-2 border-emerald-500 pl-3">
                      {[...gameStats].sort((a,b)=>b.posRate-a.posRate)[0].game}
                      <span className="text-emerald-500 font-mono text-sm ml-2">
@@ -105,7 +105,7 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
                </div>
 
                <div>
-                  <div className="text-xs text-zinc-400 dark:text-zinc-300 mb-1">Highest Critical Risk</div>
+                  <div className="text-xs text-zinc-400 dark:text-zinc-300 mb-1">负向风险最高</div>
                   <div className="font-semibold text-lg text-zinc-900 dark:text-zinc-100 border-l-2 border-red-500 pl-3">
                      {[...gameStats].sort((a,b)=>b.negRate-a.negRate)[0].game}
                      <span className="text-red-500 font-mono text-sm ml-2">
@@ -123,11 +123,11 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead className="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 border-b border-zinc-100 dark:border-zinc-700/50/50">
             <tr>
-              <th className="px-6 py-4 font-semibold">Game Title</th>
-              <th className="px-6 py-4 font-semibold text-right">Sample Size</th>
-              <th className="px-6 py-4 font-semibold text-right">Positive %</th>
-              <th className="px-6 py-4 font-semibold text-right">Negative %</th>
-              <th className="px-6 py-4 font-semibold text-right">Primary Topic Focus</th>
+              <th className="px-6 py-4 font-semibold">游戏名称</th>
+              <th className="px-6 py-4 font-semibold text-right">样本量</th>
+              <th className="px-6 py-4 font-semibold text-right">好评占比</th>
+              <th className="px-6 py-4 font-semibold text-right">差评占比</th>
+              <th className="px-6 py-4 font-semibold text-right">主要主题</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">

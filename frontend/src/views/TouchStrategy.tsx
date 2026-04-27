@@ -87,7 +87,7 @@ export function TouchStrategy() {
     <div className="py-12 px-8">
       <div className="mb-10 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">Touch Strategy</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">触达策略</h1>
           <p className="text-zinc-500 dark:text-zinc-300">Automated CRM strategies based on behavioral segments.</p>
         </div>
 

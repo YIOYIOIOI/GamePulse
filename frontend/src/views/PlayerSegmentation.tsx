@@ -20,9 +20,9 @@ export function PlayerSegmentation() {
 
   // Segment logic
   const segments = {
-    'New Player': validData.filter(d => d.player_type === 'New Player'),
-    'Regular Player': validData.filter(d => d.player_type === 'Regular Player'),
-    'Core Player': validData.filter(d => d.player_type === 'Core Player'),
+    '新玩家': validData.filter(d => d.player_type === '新玩家'),
+    '普通玩家': validData.filter(d => d.player_type === '普通玩家'),
+    '核心玩家': validData.filter(d => d.player_type === '核心玩家'),
   };
 
   const segmentStats = Object.entries(segments).map(([name, groupData]) => {
@@ -55,7 +55,7 @@ export function PlayerSegmentation() {
   return (
     <div className="py-12 px-8">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">Player Segmentation</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">玩家分层</h1>
         <p className="text-zinc-500 dark:text-zinc-300">Categorize players based on engagement and behavioral proxies.</p>
 
         <div className="mt-4 inline-block bg-blue-50 border border-blue-100 rounded-lg px-4 py-2">
@@ -70,7 +70,7 @@ export function PlayerSegmentation() {
         {/* Value vs Risk Matrix */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">
            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-2">Value & Risk Matrix (Proxy)</h2>
-           <p className="text-xs text-zinc-400 dark:text-zinc-300 mb-6">X: Active Value | Y: Churn Risk Proxy | Color: Sentiment</p>
+           <p className="text-xs text-zinc-400 dark:text-zinc-300 mb-6">X: Active Value | Y: 流失风险 Proxy | Color: Sentiment</p>
 
            <div className="h-[300px]">
              <ResponsiveContainer width="100%" height="100%">

@@ -40,21 +40,21 @@ export function FeedbackAnalysis() {
     .slice(0, 10);
 
   if (data.length === 0 || (!posCount && !negCount)) {
-    return <div className="p-8 text-zinc-500 dark:text-zinc-300">Not enough data for feedback analysis.</div>;
+    return <div className="p-8 text-zinc-500 dark:text-zinc-300">数据不足，无法进行反馈分析。</div>;
   }
 
   return (
     <div className="py-12 px-8">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">Feedback Analysis</h1>
-        <p className="text-zinc-500 dark:text-zinc-300">Understand what players are saying and locate primary pain points.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">反馈分析</h1>
+        <p className="text-zinc-500 dark:text-zinc-300">理解玩家在说什么，并定位主要痛点。</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 
         {/* Sentiment Structure */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">
-           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">Word of Mouth</h2>
+           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">口碑结构</h2>
            <div className="h-64 relative">
              <ResponsiveContainer width="100%" height="100%">
                <PieChart>
@@ -76,7 +76,7 @@ export function FeedbackAnalysis() {
              </ResponsiveContainer>
              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-3xl font-light font-mono">{((posCount / (posCount+negCount)) * 100).toFixed(0)}%</span>
-                <span className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold tracking-widest mt-1">Positive</span>
+                <span className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold tracking-widest mt-1">正向</span>
              </div>
            </div>
         </div>
@@ -84,7 +84,7 @@ export function FeedbackAnalysis() {
         {/* High Frequency Topics */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50 md:col-span-2">
            <div className="flex justify-between items-center mb-6">
-             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300">High Frequency Topics</h2>
+             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300">高频主题</h2>
              <div className="flex gap-2">
                {(['all', 'negative', 'positive'] as const).map(mode => (
                  <button
@@ -116,7 +116,7 @@ export function FeedbackAnalysis() {
                  </BarChart>
                </ResponsiveContainer>
              ) : (
-                <div className="h-full flex items-center justify-center text-zinc-400 dark:text-zinc-300 text-sm">No topics extracted.</div>
+                <div className="h-full flex items-center justify-center text-zinc-400 dark:text-zinc-300 text-sm">未提取到主题。</div>
              )}
            </div>
         </div>
@@ -125,16 +125,16 @@ export function FeedbackAnalysis() {
       {/* Verbatims */}
       <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-700/50/50">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300">Latest Review Samples</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300">最新评论样本</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 border-b border-zinc-100 dark:border-zinc-700/50/50">
               <tr>
-                <th className="px-6 py-3 font-semibold w-32">Config</th>
-                <th className="px-6 py-3 font-semibold w-48">Topic</th>
-                <th className="px-6 py-3 font-semibold min-w-[300px]">Review Verbatim</th>
-                <th className="px-6 py-3 font-semibold w-32">Playtime</th>
+                <th className="px-6 py-3 font-semibold w-32">情绪</th>
+                <th className="px-6 py-3 font-semibold w-48">主题</th>
+                <th className="px-6 py-3 font-semibold min-w-[300px]">评论原文</th>
+                <th className="px-6 py-3 font-semibold w-32">游玩时长</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -146,7 +146,7 @@ export function FeedbackAnalysis() {
                       r.sentiment === 'positive' ? "bg-emerald-100 text-emerald-700" :
                       r.sentiment === 'negative' ? "bg-red-100 text-red-700" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
                     )}>
-                      {r.sentiment || 'Unknown'}
+                      {r.sentiment === 'positive' ? '正向' : r.sentiment === 'negative' ? '负向' : '未知'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-zinc-600 dark:text-zinc-300 truncate max-w-[200px]">

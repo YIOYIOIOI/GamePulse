@@ -33,7 +33,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
         setSteamConfig(prev => ({ ...prev, gameName: 'Custom', customName: first.name, appId: String(first.app_id) }));
       }
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to search Steam games.');
+      alert(e instanceof Error ? e.message : 'Steam 游戏搜索失败。');
     } finally {
       setIsSearching(false);
     }
@@ -52,7 +52,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
       appendData(standardData, `Steam: ${finalGameName}`);
       onChangeView('workbench');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to fetch Steam data.');
+      alert(e instanceof Error ? e.message : 'Steam 数据采集失败。');
     } finally {
       setIsFetching(false);
     }
@@ -67,7 +67,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
       skipEmptyLines: true,
       complete: (results) => {
         if (results.data.length === 0) {
-          alert('CSV is empty or invalid.');
+          alert('CSV 为空或格式无效。');
           return;
         }
         const standardData = standardizeData(results.data, 'Uploaded Custom Game');
@@ -91,7 +91,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
       appendData(standardData, 'Local: elden_ring_reviews.csv');
       onChangeView('workbench');
     } catch (e) {
-      alert('Failed to load local demo.');
+      alert('项目样例加载失败。');
     } finally {
       setIsFetching(false);
     }
@@ -100,8 +100,8 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
   return (
     <div className="py-12 px-8">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">Data Center</h1>
-        <p className="text-zinc-500 dark:text-zinc-300">Collect or import player reviews to start analysis.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">数据中心</h1>
+        <p className="text-zinc-500 dark:text-zinc-300">采集或导入玩家评论，开始分析。</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -113,17 +113,17 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
              <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
                 <Download className="w-5 h-5" />
              </div>
-             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Steam Review Scraper</h2>
+             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Steam 评论采集</h2>
            </div>
 
            <div className="space-y-4 flex-1">
              <div>
-               <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Search Steam Game</label>
+               <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">搜索 Steam 游戏</label>
                <div className="flex gap-2">
                  <input
                    className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
                    value={searchQuery}
-                   placeholder="Search by game name"
+                   placeholder="输入游戏名称搜索"
                    onChange={e => setSearchQuery(e.target.value)}
                    onKeyDown={e => { if (e.key === 'Enter') handleGameSearch(); }}
                  />
@@ -132,7 +132,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                    disabled={isSearching}
                    className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg text-sm font-semibold disabled:opacity-50"
                  >
-                   {isSearching ? 'Searching...' : 'Search'}
+                   {isSearching ? '搜索中...' : '搜索'}
                  </button>
                </div>
                {searchResults.length > 0 && (
@@ -150,7 +150,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
 
              <div className="flex gap-4">
                <div className="flex-1">
-                 <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Game Name</label>
+                 <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">游戏名称</label>
                  <select
                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
                    value={steamConfig.gameName}
@@ -169,17 +169,17 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                    <option value="Elden Ring">Elden Ring</option>
                    <option value="Baldur's Gate 3">Baldur's Gate 3</option>
                    <option value="Cyberpunk 2077">Cyberpunk 2077</option>
-                   <option value="Custom">Custom Game</option>
+                   <option value="Custom">自定义游戏</option>
                  </select>
                </div>
 
                {steamConfig.gameName === 'Custom' && (
                  <div className="flex-1">
-                   <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Custom Title</label>
+                   <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">自定义名称</label>
                    <input
                      className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
                      value={steamConfig.customName || ''}
-                     placeholder="Enter title"
+                     placeholder="输入游戏名称"
                      onChange={e => setSteamConfig({...steamConfig, customName: e.target.value})}
                    />
                  </div>
@@ -197,7 +197,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                </div>
                <div className="flex-1">
                  <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5 flex justify-between">
-                   <span>Count</span>
+                   <span>采集数量</span>
                    <span className="font-mono">{steamConfig.count}</span>
                  </label>
                  <div className="flex items-center gap-3">
@@ -220,15 +220,15 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                </div>
              </div>
              <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Review Type</label>
+                <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">评论类型</label>
                 <select
                   className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   value={steamConfig.reviewType}
                   onChange={e => setSteamConfig({...steamConfig, reviewType: e.target.value})}
                 >
-                  <option value="all">All Reviews</option>
-                  <option value="positive">Positive Only</option>
-                  <option value="negative">Negative Only</option>
+                  <option value="all">全部评论</option>
+                  <option value="positive">仅好评</option>
+                  <option value="negative">仅差评</option>
                 </select>
              </div>
            </div>
@@ -241,7 +241,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                isFetching ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-300 cursor-not-allowed" : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100"
              )}
            >
-             {isFetching ? 'Fetching...' : 'Fetch Steam Data'}
+             {isFetching ? '采集中...' : '采集 Steam 数据'}
            </button>
         </div>
 
@@ -254,8 +254,8 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full mb-4">
                   <Upload className="w-6 h-6" />
                </div>
-               <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Upload CSV</h3>
-               <p className="text-sm text-zinc-500 dark:text-zinc-300 mb-6 w-3/4 mx-auto">Upload your own review dataset. Requires at least review text and sentiment/score.</p>
+               <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1">上传 CSV</h3>
+               <p className="text-sm text-zinc-500 dark:text-zinc-300 mb-6 w-3/4 mx-auto">上传自己的评论数据集，至少需要评论文本和情绪/评分字段。</p>
 
                <input
                  type="file"
@@ -279,8 +279,8 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                 <FileSpreadsheet className="w-5 h-5" />
              </div>
              <div>
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">Load Project File</h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">Load pre-existing elden_ring_reviews.csv</p>
+                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">加载项目样例</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">加载项目内置样例数据</p>
              </div>
              <button
                 onClick={loadLocalDemo}
@@ -298,7 +298,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
       {status.totalRecords > 0 && (
         <div className="mt-12">
           <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-zinc-700/50 pb-4">
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Current Work Dataset</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">当前工作数据集</h3>
             <button
               onClick={clearData}
               className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center gap-1.5"
@@ -310,15 +310,15 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
              <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700/50/50">
-               <div className="text-xs text-zinc-500 dark:text-zinc-300 font-semibold mb-1">Total Records</div>
+               <div className="text-xs text-zinc-500 dark:text-zinc-300 font-semibold mb-1">总记录数</div>
                <div className="text-2xl font-light font-mono text-zinc-800 dark:text-zinc-200">{status.totalRecords.toLocaleString()}</div>
              </div>
              <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700/50/50">
-               <div className="text-xs text-zinc-500 dark:text-zinc-300 font-semibold mb-1">Games</div>
+               <div className="text-xs text-zinc-500 dark:text-zinc-300 font-semibold mb-1">游戏数</div>
                <div className="text-2xl font-light font-mono text-zinc-800 dark:text-zinc-200">{status.gamesCount}</div>
              </div>
              <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700/50/50 md:col-span-2">
-               <div className="text-xs text-zinc-500 dark:text-zinc-300 font-semibold mb-1.5">Sources</div>
+               <div className="text-xs text-zinc-500 dark:text-zinc-300 font-semibold mb-1.5">数据来源</div>
                <div className="flex flex-wrap gap-2">
                  {status.dataSources.map(s => (
                    <span key={s} className="px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 rounded-md truncate max-w-full">

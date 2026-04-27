@@ -26,14 +26,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const hasData = status.totalRecords > 0;
 
   const navItems = [
-    { id: 'data-center', label: 'Data Center', icon: Database, requiresData: false },
-    { id: 'workbench', label: 'Workbench', icon: LayoutDashboard, requiresData: true },
-    { id: 'health', label: 'Data Health', icon: Stethoscope, requiresData: true },
-    { id: 'feedback', label: 'Feedback Analysis', icon: MessageSquareText, requiresData: true },
-    { id: 'segmentation', label: 'Player Segmentation', icon: Users, requiresData: true },
-    { id: 'strategy', label: 'Touch Strategy', icon: Megaphone, requiresData: true },
-    { id: 'competitor', label: 'Competitor Analysis', icon: Swords, requiresData: true },
-    { id: 'info', label: 'Analysis Boundaries', icon: Info, requiresData: false },
+    { id: 'data-center', label: '数据中心', icon: Database, requiresData: false },
+    { id: 'workbench', label: '运营工作台', icon: LayoutDashboard, requiresData: true },
+    { id: 'health', label: '数据健康度', icon: Stethoscope, requiresData: true },
+    { id: 'feedback', label: '反馈分析', icon: MessageSquareText, requiresData: true },
+    { id: 'segmentation', label: '玩家分层', icon: Users, requiresData: true },
+    { id: 'strategy', label: '触达策略', icon: Megaphone, requiresData: true },
+    { id: 'competitor', label: '竞品分析', icon: Swords, requiresData: true },
+    { id: 'info', label: '分析边界', icon: Info, requiresData: false },
   ];
 
   return (
@@ -47,7 +47,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </div>
 
         <nav className="flex flex-col gap-1">
-          <div className="text-xs uppercase tracking-widest text-zinc-500 font-semibold mb-3 px-3">Analytics Workflow</div>
+          <div className="text-xs uppercase tracking-widest text-zinc-500 font-semibold mb-3 px-3">分析流程</div>
           {navItems.map((item) => {
             const disabled = item.requiresData && !hasData;
             return (
@@ -80,21 +80,21 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
           {theme === 'dark' ? (
             <>
               <Sun className="w-4 h-4 text-orange-500" />
-              <span>Light Mode</span>
+              <span>浅色模式</span>
             </>
           ) : (
             <>
               <Moon className="w-4 h-4 text-zinc-500" />
-              <span>Dark Mode</span>
+              <span>深色模式</span>
             </>
           )}
         </button>
 
         <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700/50/50 transition-colors">
-          <div className="text-xs uppercase tracking-widest text-zinc-500 font-semibold mb-2">Active Dataset</div>
+          <div className="text-xs uppercase tracking-widest text-zinc-500 font-semibold mb-2">当前数据集</div>
           {hasData ? (
              <div>
-               <div className="text-2xl font-light text-zinc-900 dark:text-white mb-1 transition-colors">{status.totalRecords.toLocaleString()} <span className="text-xs text-zinc-400">Rows</span></div>
+               <div className="text-2xl font-light text-zinc-900 dark:text-white mb-1 transition-colors">{status.totalRecords.toLocaleString()} <span className="text-xs text-zinc-400">行</span></div>
                <div className="flex items-center gap-2 mt-2">
                  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono transition-colors">
                     {status.gamesCount} Games
@@ -107,7 +107,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                </div>
              </div>
           ) : (
-             <div className="text-sm text-zinc-500">No data loaded.</div>
+             <div className="text-sm text-zinc-500">尚未加载数据。</div>
           )}
         </div>
       </div>
