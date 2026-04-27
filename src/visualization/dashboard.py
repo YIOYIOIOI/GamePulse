@@ -22,18 +22,18 @@ from src.data_collection.steam_light_collector import (  # noqa: E402
     save_collected_reviews,
 )
 
-INK = "#2B2620"
-MUTED = "#746B60"
-PAPER = "#F6EFE5"
-CARD = "#FFFDF8"
-LINE = "#E2D5C2"
-OLIVE = "#68765B"
-CLAY = "#AA6747"
-OCHRE = "#B9852F"
-WINE = "#8D3F46"
-COCOA = "#3A3028"
-SAGE = "#DDE2C9"
-BLUSH = "#ECD4CC"
+INK = "#F2EDE4"
+MUTED = "#B8AEA0"
+PAPER = "#17130F"
+CARD = "#211B16"
+LINE = "#3C3229"
+OLIVE = "#A7B985"
+CLAY = "#D99066"
+OCHRE = "#D5A24A"
+WINE = "#D06E78"
+COCOA = "#F3E9D8"
+SAGE = "#2F3A28"
+BLUSH = "#3C2428"
 
 TOPIC_RULES = {
     "匹配与公平性": ["match", "rank", "mmr", "teammate", "balance", "fair", "smurf", "cheat", "hack"],
@@ -81,9 +81,9 @@ def inject_css() -> None:
         html, body, [class*="css"] {{ font-family: Inter, "Microsoft YaHei", sans-serif; color: {INK}; }}
         .stApp {{
           background:
-            linear-gradient(120deg, rgba(221,226,201,.45), transparent 34%),
-            radial-gradient(circle at 92% 10%, rgba(170,103,71,.16), transparent 28%),
-            linear-gradient(180deg, #F8F1E8 0%, #F4EBDC 100%);
+            linear-gradient(120deg, rgba(167,185,133,.10), transparent 34%),
+            radial-gradient(circle at 92% 10%, rgba(217,144,102,.13), transparent 28%),
+            linear-gradient(180deg, #0F0C09 0%, #17110D 48%, #1E1712 100%);
           color: {INK};
         }}
         .block-container {{ max-width: 1500px; padding: 26px 44px 80px; }}
@@ -101,62 +101,62 @@ def inject_css() -> None:
           display:grid; grid-template-columns: 1.3fr .7fr; gap:20px; align-items:stretch; margin-bottom:20px;
         }}
         .hero-main {{
-          background:{COCOA}; color:#FFF8EC; border-radius:28px; padding:34px 38px;
-          box-shadow:0 24px 70px rgba(58,48,40,.18); position:relative; overflow:hidden;
+          background:#120F0C; color:#F8EFE1; border-radius:28px; padding:34px 38px;
+          box-shadow:0 24px 70px rgba(0,0,0,.42); position:relative; overflow:hidden;
         }}
         .hero-main:after {{
           content:""; position:absolute; right:-90px; top:-90px; width:260px; height:260px; border-radius:999px;
           background:rgba(221,226,201,.18);
         }}
-        .eyebrow {{ color:#E5C8B8; text-transform:uppercase; letter-spacing:.14em; font-weight:900; font-size:12px; margin-bottom:10px; }}
-        .hero-title {{ font-family:"Noto Serif SC", serif; font-size:48px; line-height:1.08; margin:0 0 14px; color:#FFF8EC; }}
-        .hero-copy {{ color:rgba(255,248,236,.78); line-height:1.8; max-width:760px; font-size:15px; }}
+        .eyebrow {{ color:#D99066; text-transform:uppercase; letter-spacing:.14em; font-weight:900; font-size:12px; margin-bottom:10px; }}
+        .hero-title {{ font-family:"Noto Serif SC", serif; font-size:48px; line-height:1.08; margin:0 0 14px; color:#F8EFE1; }}
+        .hero-copy {{ color:rgba(248,239,225,.72); line-height:1.8; max-width:760px; font-size:15px; }}
         .hero-side {{
           background:{CARD}; border:1px solid {LINE}; border-radius:28px; padding:26px;
-          box-shadow:0 18px 50px rgba(65,49,35,.10);
+          box-shadow:0 18px 50px rgba(0,0,0,.32);
         }}
         .status-big {{ font-size:34px; font-weight:900; line-height:1; margin:12px 0; color:{COCOA}; }}
         .status-note {{ color:{MUTED}; line-height:1.7; font-size:13px; }}
         .command {{
           background:{CARD}; border:1px solid {LINE}; border-radius:24px; padding:18px; margin-bottom:20px;
-          box-shadow:0 14px 42px rgba(65,49,35,.08);
+          box-shadow:0 14px 42px rgba(0,0,0,.28);
         }}
         .command-title {{ font-weight:900; color:{COCOA}; margin-bottom:4px; }}
         .command-help {{ color:{MUTED}; font-size:13px; margin-bottom:10px; }}
         .nav-wrap {{
-          background:rgba(255,253,248,.76); border:1px solid {LINE}; border-radius:22px;
-          padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(65,49,35,.06);
+          background:rgba(33,27,22,.82); border:1px solid {LINE}; border-radius:22px;
+          padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(0,0,0,.24);
         }}
         div[role="radiogroup"] {{ gap:8px; }}
         div[role="radiogroup"] label {{
-          background:#FFFDF8; border:1px solid {LINE}; border-radius:999px; padding:8px 14px;
+          background:#211B16; border:1px solid {LINE}; border-radius:999px; padding:8px 14px;
           min-height:38px; color:{MUTED}; font-weight:800;
         }}
-        div[role="radiogroup"] label:has(input:checked) {{ background:{COCOA}; color:#FFF8EC; border-color:{COCOA}; }}
+        div[role="radiogroup"] label:has(input:checked) {{ background:#120F0C; color:#F8EFE1; border-color:{COCOA}; }}
         .section {{ margin:12px 0 20px; }}
         .section-kicker {{ color:{CLAY}; text-transform:uppercase; letter-spacing:.13em; font-size:11px; font-weight:900; }}
         .section-title {{ font-family:"Noto Serif SC", serif; font-size:30px; margin:4px 0 6px; }}
         .section-copy {{ color:{MUTED}; line-height:1.7; max-width:840px; }}
         .metric-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:16px 0 22px; }}
-        .metric {{ background:{CARD}; border:1px solid {LINE}; border-radius:22px; padding:18px; box-shadow:0 14px 36px rgba(65,49,35,.08); }}
+        .metric {{ background:{CARD}; border:1px solid {LINE}; border-radius:22px; padding:18px; box-shadow:0 14px 36px rgba(0,0,0,.26); }}
         .metric-label {{ color:{MUTED}; font-size:12px; font-weight:800; }}
         .metric-value {{ font-size:30px; font-weight:900; color:{COCOA}; margin-top:10px; }}
         .metric-note {{ color:{MUTED}; font-size:12px; line-height:1.55; margin-top:8px; }}
         .board-grid {{ display:grid; grid-template-columns:1.1fr .9fr; gap:18px; align-items:start; }}
-        .card {{ background:{CARD}; border:1px solid {LINE}; border-radius:24px; padding:22px; box-shadow:0 14px 36px rgba(65,49,35,.08); margin-bottom:16px; }}
+        .card {{ background:{CARD}; border:1px solid {LINE}; border-radius:24px; padding:22px; box-shadow:0 14px 36px rgba(0,0,0,.26); margin-bottom:16px; }}
         .card h3 {{ margin:0 0 10px; font-size:20px; }}
         .card p {{ color:{MUTED}; line-height:1.7; margin:7px 0; }}
         .action-list {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }}
-        .action-card {{ background:{CARD}; border:1px solid {LINE}; border-radius:22px; padding:18px; min-height:210px; box-shadow:0 14px 36px rgba(65,49,35,.08); }}
+        .action-card {{ background:{CARD}; border:1px solid {LINE}; border-radius:22px; padding:18px; min-height:210px; box-shadow:0 14px 36px rgba(0,0,0,.26); }}
         .action-card h3 {{ font-size:18px; margin:0 0 10px; }}
         .action-card p {{ color:{MUTED}; font-size:13px; line-height:1.65; }}
         .tag {{ display:inline-block; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:800; margin:0 6px 8px 0; }}
-        .tag.good {{ background:{SAGE}; color:#45533B; }}
-        .tag.warn {{ background:#F2DDC2; color:#875A27; }}
-        .tag.bad {{ background:{BLUSH}; color:#7B3740; }}
+        .tag.good {{ background:{SAGE}; color:#B8C99B; }}
+        .tag.warn {{ background:#3A2B18; color:#E8B76A; }}
+        .tag.bad {{ background:{BLUSH}; color:#E18A92; }}
         .note {{ color:{MUTED}; font-size:12px; line-height:1.65; }}
-        .stButton > button {{ background:{COCOA} !important; color:#FFF8EC !important; border:1px solid {COCOA} !important; border-radius:14px !important; font-weight:900 !important; }}
-        .stButton > button:hover {{ background:#514337 !important; border-color:#514337 !important; }}
+        .stButton > button {{ background:#F3E9D8 !important; color:#17110D !important; border:1px solid #F3E9D8 !important; border-radius:14px !important; font-weight:900 !important; }}
+        .stButton > button:hover {{ background:#D9CBB8 !important; border-color:#D9CBB8 !important; }}
         div[data-baseweb="select"] > div, input, textarea {{ background:{CARD} !important; border-color:{LINE} !important; }}
         .stFileUploader {{ background:{CARD}; border:1px dashed {LINE}; border-radius:18px; padding:10px; }}
         </style>
@@ -174,7 +174,7 @@ def init_state() -> None:
 
 def plot_layout(fig):
     fig.update_layout(
-        template="plotly_white",
+        template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": INK, "family": "Inter, Microsoft YaHei"},
@@ -457,7 +457,7 @@ def voice(df: pd.DataFrame) -> None:
     with c2:
         if "topic_description" in df.columns:
             topics = df["topic_description"].value_counts().head(10).sort_values()
-            fig = px.bar(x=topics.values, y=topics.index, orientation="h", title="玩家主要在说什么", color=topics.values, color_continuous_scale=["#EAD9BE", CLAY])
+            fig = px.bar(x=topics.values, y=topics.index, orientation="h", title="玩家主要在说什么", color=topics.values, color_continuous_scale=["#3C3229", CLAY])
             fig.update_layout(showlegend=False, coloraxis_showscale=False)
             st.plotly_chart(plot_layout(fig), width="stretch")
             if "topic_source" in df.columns:
