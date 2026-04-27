@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { clearLlmMemory, DEFAULT_LLM_SETTINGS, fetchModelList, loadLlmMemory, loadLlmSettings, maskApiKey, saveLlmSettings, type LlmSettings, type ModelOption } from '../lib/llmClient';
-import { KeyRound, Trash2, Database, RefreshCw } from 'lucide-react';
+import { KeyRound, Trash2, Database, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 export function ModelSettings() {
   const [settings, setSettings] = useState<LlmSettings>(() => loadLlmSettings());
@@ -9,6 +9,7 @@ export function ModelSettings() {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [memoryCount, setMemoryCount] = useState(() => loadLlmMemory().length);
+  const [showSecret, setShowSecret] = useState(false);
 
   const persist = () => {
     saveLlmSettings(settings);
@@ -46,7 +47,7 @@ export function ModelSettings() {
     <div className="py-12 px-8">
       <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">模型设置</h1>
-        <p className="text-zinc-500 dark:text-zinc-300">配置 AI 增强能力，用于主题细分和触达策略生成。</p>
+        <p className="text-zinc-500 dark:text-zinc-300">配置模型辅助分析：调用你填写的模型服务来辅助主题细分和触达策略生成，不是推理模式开关。</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -54,8 +55,8 @@ export function ModelSettings() {
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 rounded-lg bg-amber-50 text-amber-700"><KeyRound className="w-5 h-5" /></div>
             <div>
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">模型服务</h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">访问密钥只保存在当前浏览器本地，不写入项目后端。</p>
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">模型服务连接</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">用于连接你自己的模型接口；密钥只保存在当前浏览器本地，不写入项目后端。</p>
             </div>
           </div>
 
@@ -67,7 +68,7 @@ export function ModelSettings() {
                 onChange={e => setSettings(prev => ({ ...prev, enabled: e.target.checked }))}
                 className="w-4 h-4 accent-zinc-900 cursor-pointer"
               />
-              启用 AI 增强
+              启用模型辅助分析
             </label>
 
             <div>
@@ -81,14 +82,29 @@ export function ModelSettings() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 mb-1.5">访问密钥</label>
-              <input
-                type="password"
-                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-amber-500"
-                value={settings.apiKey}
-                onChange={e => setSettings(prev => ({ ...prev, apiKey: e.target.value }))}
-                placeholder="sk-..."
-                autoComplete="off"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="text"
+                  name="gamepulse-model-access-token"
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 pr-11 text-sm outline-none focus:border-amber-500"
+                  value={settings.apiKey}
+                  onChange={e => setSettings(prev => ({ ...prev, apiKey: e.target.value }))}
+                  placeholder="粘贴模型服务访问密钥"
+                  style={{ WebkitTextSecurity: showSecret ? 'none' : 'disc' } as CSSProperties}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSecret(prev => !prev)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
+                  aria-label={showSecret ? '隐藏密钥' : '显示密钥'}
+                >
+                  {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-zinc-400">这里不是登录表单；密钥仅用于浏览器直接请求模型服务。</p>
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -143,7 +159,7 @@ export function ModelSettings() {
             <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">本地记忆缓存</h2>
           </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-300 leading-relaxed mb-4">
-            AI 增强返回的主题细分和策略结果会缓存在本机浏览器，用于相同数据重复分析时复用，减少等待。
+            模型辅助分析返回的主题细分和策略结果会缓存在本机浏览器，用于相同数据重复分析时复用，减少等待。
           </p>
           <div className="text-2xl font-mono text-zinc-900 dark:text-zinc-100 mb-4">{memoryCount}</div>
           <button onClick={clearMemory} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">

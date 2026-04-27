@@ -52,13 +52,13 @@ export function FeedbackAnalysis() {
       return;
     }
     setIsClassifying(true);
-    setLlmStatus('正在使用 AI 增强进行主题细分...');
+    setLlmStatus('正在使用 模型辅助分析进行主题细分...');
     try {
       const { result, fromCache } = await classifyTopicsWithLlm(data);
       const updates = new Map((result.topics || []).map(item => [item.index, item.topic]));
-      const next = data.map((row, index) => updates.has(index) ? { ...row, topic_description: updates.get(index), topic_source: fromCache ? '本地 AI 缓存' : 'AI 增强' } : row);
+      const next = data.map((row, index) => updates.has(index) ? { ...row, topic_description: updates.get(index), topic_source: fromCache ? '本地 AI 缓存' : '模型辅助分析' } : row);
       replaceData(next, fromCache ? 'AI 主题缓存' : 'AI 主题细分');
-      setLlmStatus(fromCache ? '已使用本地缓存完成主题细分。' : '已通过 AI 增强完成主题细分。');
+      setLlmStatus(fromCache ? '已使用本地缓存完成主题细分。' : '已通过 模型辅助分析完成主题细分。');
     } catch (err) {
       setLlmStatus(err instanceof Error ? err.message : 'AI 主题细分失败。');
     } finally {
@@ -81,7 +81,7 @@ export function FeedbackAnalysis() {
             disabled={isClassifying}
             className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
           >
-            {isClassifying ? '细分中...' : '用 AI 增强细分主题'}
+            {isClassifying ? '细分中...' : '用 模型辅助分析细分主题'}
           </button>
           {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
         </div>
