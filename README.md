@@ -99,6 +99,14 @@ python -m venv .venv
 .venv\\Scripts\\streamlit.exe run src\\visualization\\dashboard.py
 ```
 
+控制台侧边栏支持三种数据入口：
+
+- 直接从 Steam 采集真实评论（DOTA 2 / Elden Ring / Baldur's Gate 3 / Cyberpunk 2077 / 自定义 App ID）
+- 选择本地已有分析结果
+- 上传 CSV 文件
+
+Steam 采集入口使用轻量采集器 `src/data_collection/steam_light_collector.py`，只依赖 requests + pandas，避免 dashboard 因 torch/transformers 等重依赖无法启动。
+
 4. **构建真实本地竞品演示数据集**
 ```bash
 .venv\\Scripts\\python.exe -m src.analysis.build_demo_dataset

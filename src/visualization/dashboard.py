@@ -18,6 +18,10 @@ from src.analysis.product_metrics import (  # noqa: E402
     evidence_backed_actions,
     executive_summary,
 )
+from src.data_collection.steam_light_collector import (  # noqa: E402
+    fetch_steam_reviews,
+    save_collected_reviews,
+)
 
 BRAND = {
     "bg": "#0B1020",
@@ -260,12 +264,50 @@ def render_methodology() -> None:
     )
 
 
+def render_collection_panel() -> pd.DataFrame | None:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Steam 真实数据采集")
+    presets = {
+        "DOTA 2": 570,
+        "Elden Ring": 1245620,
+        "Baldur's Gate 3": 1086940,
+        "Cyberpunk 2077": 1091500,
+        "自定义": 0,
+    }
+    preset = st.sidebar.selectbox("游戏", list(presets.keys()))
+    app_id = presets[preset]
+    game_name = preset
+    if preset == "自定义":
+        app_id = st.sidebar.number_input("Steam App ID", min_value=1, value=570, step=1)
+        game_name = st.sidebar.text_input("游戏名称", value="Custom Steam Game")
+    max_reviews = st.sidebar.slider("采集评论数", min_value=100, max_value=5000, value=1000, step=100)
+    language = st.sidebar.selectbox("语言", ["all", "english", "schinese"], index=0)
+    review_type = st.sidebar.selectbox("评论类型", ["all", "positive", "negative"], index=0)
+    if st.sidebar.button("采集 Steam 评论并加载", type="primary"):
+        with st.spinner(f"正在从 Steam 采集 {game_name} 评论..."):
+            df_new = fetch_steam_reviews(
+                app_id=int(app_id),
+                game_name=game_name,
+                max_reviews=int(max_reviews),
+                language=language,
+                review_type=review_type,
+            )
+            if df_new.empty:
+                st.error("没有采集到有效评论。请检查 App ID、网络或 Steam 接口状态。")
+                return None
+            out = save_collected_reviews(df_new, game_name)
+            st.sidebar.success(f"采集完成：{len(df_new):,} 条，已保存 {out.name}")
+            return df_new
+    return None
+
+
 def main() -> None:
     st.set_page_config(page_title="GamePulse AI Ops Console", page_icon="🎮", layout="wide", initial_sidebar_state="expanded")
     inject_css()
     page_header()
 
     st.sidebar.title("GamePulse Console")
+    collected_df = render_collection_panel()
     default_files = find_default_files()
     file_choice = None
     if default_files:
@@ -275,12 +317,14 @@ def main() -> None:
             file_choice = selected
     uploaded = st.sidebar.file_uploader("或上传 CSV", type=["csv"])
 
-    if uploaded is not None:
+    if collected_df is not None:
+        df = collected_df
+    elif uploaded is not None:
         df = load_data(uploaded)
     elif file_choice:
         df = load_data(file_choice)
     else:
-        st.info("请在侧边栏选择已有分析结果或上传 CSV。")
+        st.info("请在侧边栏采集 Steam 评论、选择已有分析结果或上传 CSV。")
         st.stop()
 
     st.sidebar.success(f"已加载 {len(df):,} 条记录")
