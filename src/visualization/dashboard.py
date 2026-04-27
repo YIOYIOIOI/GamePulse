@@ -1,4 +1,4 @@
-"""GamePulse 运营洞察台 — rebuilt Streamlit product UI."""
+"""GamePulse 运营洞察台 — fully rebuilt no-sidebar product UI."""
 
 from __future__ import annotations
 
@@ -22,18 +22,18 @@ from src.data_collection.steam_light_collector import (  # noqa: E402
     save_collected_reviews,
 )
 
-# Warm, editorial operations palette. No tech blue.
-INK = "#24211D"
-MUTED = "#716B61"
-PAPER = "#F7F1E7"
+INK = "#2B2620"
+MUTED = "#746B60"
+PAPER = "#F6EFE5"
 CARD = "#FFFDF8"
-LINE = "#E4D8C7"
-OLIVE = "#5F6F52"
-MOSS = "#7C8A5D"
-CLAY = "#B46A45"
-OCHRE = "#C89232"
-WINE = "#8E3B46"
-SAND = "#EFE3D0"
+LINE = "#E2D5C2"
+OLIVE = "#68765B"
+CLAY = "#AA6747"
+OCHRE = "#B9852F"
+WINE = "#8D3F46"
+COCOA = "#3A3028"
+SAGE = "#DDE2C9"
+BLUSH = "#ECD4CC"
 
 TOPIC_RULES = {
     "匹配与公平性": ["match", "rank", "mmr", "teammate", "balance", "fair", "smurf", "cheat", "hack"],
@@ -63,13 +63,13 @@ SEGMENT_COPY = {
 }
 
 PAGE_LABELS = {
-    "home": "工作台",
-    "quality": "数据质量",
+    "board": "决策看板",
+    "quality": "数据体检",
     "voice": "玩家反馈",
     "segments": "玩家分层",
-    "campaigns": "触达策略",
+    "campaigns": "触达方案",
     "competitors": "竞品对比",
-    "method": "说明",
+    "method": "口径说明",
 }
 
 
@@ -78,149 +78,87 @@ def inject_css() -> None:
         f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap');
-
-        :root {{
-          --ink: {INK};
-          --muted: {MUTED};
-          --paper: {PAPER};
-          --card: {CARD};
-          --line: {LINE};
-          --olive: {OLIVE};
-          --clay: {CLAY};
-          --ochre: {OCHRE};
-          --wine: {WINE};
-        }}
-
-        html, body, [class*="css"] {{
-          font-family: Inter, "Microsoft YaHei", sans-serif;
-          color: var(--ink);
-        }}
+        html, body, [class*="css"] {{ font-family: Inter, "Microsoft YaHei", sans-serif; color: {INK}; }}
         .stApp {{
           background:
-            radial-gradient(circle at 12% 8%, rgba(180,106,69,.10), transparent 26%),
-            linear-gradient(180deg, #F8F0E3 0%, #F6EFE5 38%, #EFE3D0 100%);
-          color: var(--ink);
+            linear-gradient(120deg, rgba(221,226,201,.45), transparent 34%),
+            radial-gradient(circle at 92% 10%, rgba(170,103,71,.16), transparent 28%),
+            linear-gradient(180deg, #F8F1E8 0%, #F4EBDC 100%);
+          color: {INK};
         }}
-        .block-container {{ max-width: 1440px; padding: 28px 42px 72px; }}
-        section[data-testid="stSidebar"] {{
-          background: #F4E8D7;
-          border-right: 1px solid var(--line);
+        .block-container {{ max-width: 1500px; padding: 26px 44px 80px; }}
+        section[data-testid="stSidebar"] {{ display: none !important; }}
+        [data-testid="collapsedControl"] {{ display: none !important; }}
+        h1, h2, h3 {{ color: {INK}; letter-spacing: -.03em; }}
+        .topbar {{
+          display:flex; justify-content:space-between; align-items:center;
+          border-bottom:1px solid {LINE}; padding-bottom:18px; margin-bottom:22px;
         }}
-        section[data-testid="stSidebar"] * {{ color: var(--ink); }}
-        div[data-testid="stSidebarUserContent"] {{ padding-top: 20px; }}
-
-        h1, h2, h3 {{ color: var(--ink); letter-spacing: -.03em; }}
-        .brand {{
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 24px;
-          align-items: end;
-          border-bottom: 1px solid var(--line);
-          padding-bottom: 22px;
-          margin-bottom: 24px;
+        .brandmark {{ font-weight: 900; letter-spacing: -.04em; font-size: 22px; color:{COCOA}; }}
+        .brandmark span {{ color:{CLAY}; }}
+        .top-meta {{ color:{MUTED}; font-size:13px; }}
+        .hero {{
+          display:grid; grid-template-columns: 1.3fr .7fr; gap:20px; align-items:stretch; margin-bottom:20px;
         }}
-        .brand-kicker {{
-          font-size: 12px;
-          letter-spacing: .16em;
-          text-transform: uppercase;
-          color: var(--clay);
-          font-weight: 800;
-          margin-bottom: 8px;
+        .hero-main {{
+          background:{COCOA}; color:#FFF8EC; border-radius:28px; padding:34px 38px;
+          box-shadow:0 24px 70px rgba(58,48,40,.18); position:relative; overflow:hidden;
         }}
-        .brand-title {{
-          font-family: "Noto Serif SC", serif;
-          font-size: 48px;
-          line-height: 1.05;
-          font-weight: 700;
-          margin: 0;
+        .hero-main:after {{
+          content:""; position:absolute; right:-90px; top:-90px; width:260px; height:260px; border-radius:999px;
+          background:rgba(221,226,201,.18);
         }}
-        .brand-copy {{
-          max-width: 760px;
-          color: var(--muted);
-          font-size: 15px;
-          line-height: 1.75;
-          margin-top: 12px;
+        .eyebrow {{ color:#E5C8B8; text-transform:uppercase; letter-spacing:.14em; font-weight:900; font-size:12px; margin-bottom:10px; }}
+        .hero-title {{ font-family:"Noto Serif SC", serif; font-size:48px; line-height:1.08; margin:0 0 14px; color:#FFF8EC; }}
+        .hero-copy {{ color:rgba(255,248,236,.78); line-height:1.8; max-width:760px; font-size:15px; }}
+        .hero-side {{
+          background:{CARD}; border:1px solid {LINE}; border-radius:28px; padding:26px;
+          box-shadow:0 18px 50px rgba(65,49,35,.10);
         }}
-        .brand-meta {{
-          background: #2C2924;
-          color: #FFF8EC;
-          border-radius: 22px;
-          padding: 18px 20px;
-          min-width: 260px;
-          box-shadow: 0 18px 50px rgba(36,33,29,.14);
+        .status-big {{ font-size:34px; font-weight:900; line-height:1; margin:12px 0; color:{COCOA}; }}
+        .status-note {{ color:{MUTED}; line-height:1.7; font-size:13px; }}
+        .command {{
+          background:{CARD}; border:1px solid {LINE}; border-radius:24px; padding:18px; margin-bottom:20px;
+          box-shadow:0 14px 42px rgba(65,49,35,.08);
         }}
-        .brand-meta b {{ color: #FFF8EC; }}
-        .brand-meta div {{ color: rgba(255,248,236,.76); font-size: 13px; margin-top: 6px; }}
-
-        .layout-grid {{
-          display: grid;
-          grid-template-columns: 280px 1fr;
-          gap: 22px;
-          align-items: start;
+        .command-title {{ font-weight:900; color:{COCOA}; margin-bottom:4px; }}
+        .command-help {{ color:{MUTED}; font-size:13px; margin-bottom:10px; }}
+        .nav-wrap {{
+          background:rgba(255,253,248,.76); border:1px solid {LINE}; border-radius:22px;
+          padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(65,49,35,.06);
         }}
-        .left-rail, .panel, .metric-card, .note-card {{
-          background: rgba(255,253,248,.92);
-          border: 1px solid var(--line);
-          border-radius: 22px;
-          box-shadow: 0 14px 36px rgba(68,55,42,.08);
+        div[role="radiogroup"] {{ gap:8px; }}
+        div[role="radiogroup"] label {{
+          background:#FFFDF8; border:1px solid {LINE}; border-radius:999px; padding:8px 14px;
+          min-height:38px; color:{MUTED}; font-weight:800;
         }}
-        .left-rail {{ padding: 18px; position: sticky; top: 18px; }}
-        .panel {{ padding: 24px; margin-bottom: 18px; }}
-        .section-head {{ margin-bottom: 18px; }}
-        .section-eyebrow {{
-          color: var(--clay);
-          text-transform: uppercase;
-          letter-spacing: .12em;
-          font-size: 11px;
-          font-weight: 800;
-          margin-bottom: 6px;
-        }}
-        .section-title {{
-          font-family: "Noto Serif SC", serif;
-          font-size: 28px;
-          font-weight: 700;
-          margin: 0;
-        }}
-        .section-copy {{
-          color: var(--muted);
-          line-height: 1.7;
-          margin-top: 8px;
-          max-width: 780px;
-        }}
-        .metric-row {{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }}
-        .metric-card {{ padding: 18px; min-height: 126px; }}
-        .metric-label {{ color: var(--muted); font-size: 12px; font-weight: 700; }}
-        .metric-value {{ color: var(--ink); font-size: 30px; line-height: 1; font-weight: 800; margin-top: 12px; }}
-        .metric-note {{ color: var(--muted); font-size: 12px; line-height: 1.55; margin-top: 10px; }}
-        .note-card {{ padding: 18px; margin-bottom: 14px; }}
-        .note-card h3 {{ margin: 0 0 10px; font-size: 18px; }}
-        .note-card p {{ color: var(--muted); margin: 7px 0; line-height: 1.65; }}
-        .label {{ display:inline-block; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 700; margin: 0 6px 6px 0; }}
-        .label.good {{ background:#E6E8D6; color:#43523D; }}
-        .label.warn {{ background:#F4DFC9; color:#914F2F; }}
-        .label.bad {{ background:#F2D7D8; color:#7C2E3A; }}
-        .divider-title {{ color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .10em; text-transform: uppercase; margin: 8px 0 12px; }}
-        .source-line {{ font-size: 12px; color: var(--muted); line-height: 1.6; }}
-        .stButton > button {{
-          border: 1px solid #6E563F !important;
-          background: #2C2924 !important;
-          color: #FFF8EC !important;
-          border-radius: 13px !important;
-          font-weight: 800 !important;
-        }}
-        .stButton > button:hover {{ background: #443729 !important; border-color:#443729 !important; }}
-        div[data-baseweb="select"] > div, input, textarea {{ background: #FFFDF8 !important; border-color: var(--line) !important; }}
-        .stTabs [data-baseweb="tab-list"] {{ gap: 10px; border-bottom: 1px solid var(--line); }}
-        .stTabs [data-baseweb="tab"] {{
-          background: #FFFDF8;
-          border: 1px solid var(--line);
-          border-bottom: 0;
-          border-radius: 14px 14px 0 0;
-          padding: 10px 18px;
-          color: var(--muted);
-          font-weight: 700;
-        }}
-        .stTabs [aria-selected="true"] {{ background: #2C2924 !important; color: #FFF8EC !important; }}
+        div[role="radiogroup"] label:has(input:checked) {{ background:{COCOA}; color:#FFF8EC; border-color:{COCOA}; }}
+        .section {{ margin:12px 0 20px; }}
+        .section-kicker {{ color:{CLAY}; text-transform:uppercase; letter-spacing:.13em; font-size:11px; font-weight:900; }}
+        .section-title {{ font-family:"Noto Serif SC", serif; font-size:30px; margin:4px 0 6px; }}
+        .section-copy {{ color:{MUTED}; line-height:1.7; max-width:840px; }}
+        .metric-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:16px 0 22px; }}
+        .metric {{ background:{CARD}; border:1px solid {LINE}; border-radius:22px; padding:18px; box-shadow:0 14px 36px rgba(65,49,35,.08); }}
+        .metric-label {{ color:{MUTED}; font-size:12px; font-weight:800; }}
+        .metric-value {{ font-size:30px; font-weight:900; color:{COCOA}; margin-top:10px; }}
+        .metric-note {{ color:{MUTED}; font-size:12px; line-height:1.55; margin-top:8px; }}
+        .board-grid {{ display:grid; grid-template-columns:1.1fr .9fr; gap:18px; align-items:start; }}
+        .card {{ background:{CARD}; border:1px solid {LINE}; border-radius:24px; padding:22px; box-shadow:0 14px 36px rgba(65,49,35,.08); margin-bottom:16px; }}
+        .card h3 {{ margin:0 0 10px; font-size:20px; }}
+        .card p {{ color:{MUTED}; line-height:1.7; margin:7px 0; }}
+        .action-list {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }}
+        .action-card {{ background:{CARD}; border:1px solid {LINE}; border-radius:22px; padding:18px; min-height:210px; box-shadow:0 14px 36px rgba(65,49,35,.08); }}
+        .action-card h3 {{ font-size:18px; margin:0 0 10px; }}
+        .action-card p {{ color:{MUTED}; font-size:13px; line-height:1.65; }}
+        .tag {{ display:inline-block; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:800; margin:0 6px 8px 0; }}
+        .tag.good {{ background:{SAGE}; color:#45533B; }}
+        .tag.warn {{ background:#F2DDC2; color:#875A27; }}
+        .tag.bad {{ background:{BLUSH}; color:#7B3740; }}
+        .note {{ color:{MUTED}; font-size:12px; line-height:1.65; }}
+        .stButton > button {{ background:{COCOA} !important; color:#FFF8EC !important; border:1px solid {COCOA} !important; border-radius:14px !important; font-weight:900 !important; }}
+        .stButton > button:hover {{ background:#514337 !important; border-color:#514337 !important; }}
+        div[data-baseweb="select"] > div, input, textarea {{ background:{CARD} !important; border-color:{LINE} !important; }}
+        .stFileUploader {{ background:{CARD}; border:1px dashed {LINE}; border-radius:18px; padding:10px; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -231,7 +169,7 @@ def init_state() -> None:
     st.session_state.setdefault("datasets", [])
     st.session_state.setdefault("active_df", None)
     st.session_state.setdefault("active_source", None)
-    st.session_state.setdefault("current_page", "home")
+    st.session_state.setdefault("page", "board")
 
 
 def plot_layout(fig):
@@ -240,8 +178,8 @@ def plot_layout(fig):
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": INK, "family": "Inter, Microsoft YaHei"},
-        margin={"l": 10, "r": 10, "t": 56, "b": 24},
-        colorway=[OLIVE, CLAY, OCHRE, WINE, MOSS, "#9E7B57", "#6B5B4A"],
+        margin={"l": 10, "r": 10, "t": 58, "b": 24},
+        colorway=[OLIVE, CLAY, OCHRE, WINE, "#8A7758", "#A98C69"],
     )
     return fig
 
@@ -272,9 +210,9 @@ def infer_topics(df: pd.DataFrame) -> pd.DataFrame:
         out["topic_description_raw"] = out["topic_description"]
         out["topic_description"] = out["topic_description"].map(humanize_topic)
         if "review_text" in out.columns:
-            needs_fallback = out["topic_description"].isin(["待归类主题", "泛体验反馈/未分类"])
-            out.loc[needs_fallback, "topic_description"] = out.loc[needs_fallback, "review_text"].map(classify_review_topic)
-            out.loc[needs_fallback, "topic_source"] = "review_keyword_fallback"
+            needs = out["topic_description"].isin(["待归类主题", "泛体验反馈/未分类"])
+            out.loc[needs, "topic_description"] = out.loc[needs, "review_text"].map(classify_review_topic)
+            out.loc[needs, "topic_source"] = "review_keyword_fallback"
         return out
     if "review_text" not in out.columns:
         return out
@@ -303,7 +241,7 @@ def set_active(df: pd.DataFrame, source: str, append: bool = False) -> None:
         st.session_state.datasets = [{"source": source, "df": df}]
     frames = [item["df"] for item in st.session_state.datasets]
     st.session_state.active_df = pd.concat(frames, ignore_index=True, sort=False)
-    st.session_state.active_source = f"{len(frames)} 个数据集，{len(st.session_state.active_df):,} 条记录"
+    st.session_state.active_source = f"{len(frames)} 个数据集 · {len(st.session_state.active_df):,} 条记录"
 
 
 def load_data(path_or_file) -> pd.DataFrame:
@@ -317,48 +255,34 @@ def find_default_files() -> list[Path]:
     return sorted(results.glob("*.csv"), key=lambda p: p.stat().st_size, reverse=True)[:12]
 
 
-def metric_card(label: str, value: str, note: str = "") -> None:
+def topbar() -> None:
     st.markdown(
-        f"""
-        <div class="metric-card">
-          <div class="metric-label">{label}</div>
-          <div class="metric-value">{value}</div>
-          <div class="metric-note">{note}</div>
+        """
+        <div class="topbar">
+          <div class="brandmark">Game<span>Pulse</span></div>
+          <div class="top-meta">真实评论 · 运营判断 · 竞品对比</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def section_header(kicker: str, title: str, copy: str = "") -> None:
-    st.markdown(
-        f"""
-        <div class="section-head">
-          <div class="section-eyebrow">{kicker}</div>
-          <h2 class="section-title">{title}</h2>
-          {f'<div class="section-copy">{copy}</div>' if copy else ''}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def app_header(df: pd.DataFrame | None) -> None:
+def hero(df: pd.DataFrame | None) -> None:
     loaded = df is not None and len(df) > 0
-    game_count = df["game_name"].nunique() if loaded and "game_name" in df.columns else 0
     rows = len(df) if loaded else 0
+    games = df["game_name"].nunique() if loaded and "game_name" in df.columns else 0
     st.markdown(
         f"""
-        <div class="brand">
-          <div>
-            <div class="brand-kicker">Game Operations Dashboard</div>
-            <h1 class="brand-title">GamePulse 运营洞察台</h1>
-            <div class="brand-copy">把 Steam 真实评论整理成运营团队能用的判断：玩家在抱怨什么、哪类玩家需要优先处理、触达应该怎么说、竞品最近有什么变化。</div>
+        <div class="hero">
+          <div class="hero-main">
+            <div class="eyebrow">Operations Brief</div>
+            <h1 class="hero-title">把玩家反馈变成运营动作</h1>
+            <div class="hero-copy">从 Steam 公开评论出发，整理玩家痛点、分层风险、触达建议和竞品变化。页面只展示数据能支撑的判断，不把公开评论包装成真实收入或留存模型。</div>
           </div>
-          <div class="brand-meta">
-            <b>{'数据已加载' if loaded else '等待数据'}</b>
-            <div>{rows:,} 条记录 · {game_count} 款游戏</div>
-            <div>公开评论分析，不替代内部经营数据。</div>
+          <div class="hero-side">
+            <div class="eyebrow">Current Dataset</div>
+            <div class="status-big">{rows:,}</div>
+            <div class="status-note">条记录 · {games} 款游戏<br>{'数据已加载，可以进入分析。' if loaded else '还没有加载数据。先从下方选择采集、文件或上传。'}</div>
           </div>
         </div>
         """,
@@ -366,120 +290,167 @@ def app_header(df: pd.DataFrame | None) -> None:
     )
 
 
-def render_sidebar() -> None:
-    st.sidebar.markdown("### GamePulse")
-    st.sidebar.caption("运营分析工作台")
-    page = st.sidebar.radio("功能", list(PAGE_LABELS.keys()), format_func=lambda k: PAGE_LABELS[k], label_visibility="collapsed")
-    st.session_state.current_page = page
-
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("#### 数据")
-    source = st.sidebar.radio("来源", ["Steam 采集", "本地文件", "上传 CSV"], label_visibility="collapsed")
-    append = st.sidebar.checkbox("追加到当前数据集", value=True, help="做竞品对比时保持开启，连续采集多款游戏。")
-
+def data_command() -> None:
+    st.markdown("<div class='command'><div class='command-title'>数据入口</div><div class='command-help'>这里是唯一的数据操作区。采集、加载和上传都在这里完成，不再放左侧栏。</div>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns([1.1, 1, 1, .8])
+    with c1:
+        source = st.selectbox("来源", ["Steam 采集", "本地文件", "上传 CSV"])
+    with c2:
+        append = st.checkbox("追加到当前数据集", value=True, help="做竞品对比时保持开启。")
     if source == "Steam 采集":
         presets = {"DOTA 2": 570, "Elden Ring": 1245620, "Baldur's Gate 3": 1086940, "Cyberpunk 2077": 1091500, "自定义": 0}
-        preset = st.sidebar.selectbox("游戏", list(presets.keys()))
+        with c3:
+            preset = st.selectbox("游戏", list(presets.keys()))
         app_id = presets[preset]
         game_name = preset
         if preset == "自定义":
-            app_id = st.sidebar.number_input("Steam App ID", min_value=1, value=570, step=1)
-            game_name = st.sidebar.text_input("游戏名称", value="Custom Steam Game")
-        max_reviews = st.sidebar.slider("评论数", 100, 5000, 1000, 100)
-        language = st.sidebar.selectbox("语言", ["all", "english", "schinese"], index=0)
-        review_type = st.sidebar.selectbox("评论类型", ["all", "positive", "negative"], index=0)
-        if st.sidebar.button("采集数据", type="primary"):
-            with st.spinner(f"正在采集 {game_name} 的 Steam 评论..."):
-                df_new = fetch_steam_reviews(int(app_id), game_name, int(max_reviews), language, review_type)
-                if df_new.empty:
-                    st.sidebar.error("没有采集到有效评论。")
-                else:
-                    out = save_collected_reviews(df_new, game_name)
-                    set_active(df_new, f"Steam：{game_name} · {out.name}", append=append)
-                    st.sidebar.success(f"已采集 {len(df_new):,} 条")
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                app_id = st.number_input("Steam App ID", min_value=1, value=570, step=1)
+            with cc2:
+                game_name = st.text_input("游戏名称", value="Custom Steam Game")
+        cc1, cc2, cc3, cc4 = st.columns([1, 1, 1, .8])
+        with cc1:
+            max_reviews = st.slider("评论数", 100, 5000, 1000, 100)
+        with cc2:
+            language = st.selectbox("语言", ["all", "english", "schinese"], index=0)
+        with cc3:
+            review_type = st.selectbox("评论类型", ["all", "positive", "negative"], index=0)
+        with cc4:
+            st.write("")
+            if st.button("采集数据", type="primary"):
+                with st.spinner(f"正在采集 {game_name} 的 Steam 评论..."):
+                    df_new = fetch_steam_reviews(int(app_id), game_name, int(max_reviews), language, review_type)
+                    if df_new.empty:
+                        st.error("没有采集到有效评论。")
+                    else:
+                        out = save_collected_reviews(df_new, game_name)
+                        set_active(df_new, f"Steam：{game_name} · {out.name}", append=append)
+                        st.success(f"已采集 {len(df_new):,} 条评论")
     elif source == "本地文件":
         files = find_default_files()
         if files:
-            selected = st.sidebar.selectbox("选择文件", [str(p) for p in files], format_func=lambda x: Path(x).name)
-            if st.sidebar.button("加载文件", type="primary"):
-                set_active(load_data(selected), f"本地：{Path(selected).name}", append=append)
+            cc1, cc2 = st.columns([3, .8])
+            with cc1:
+                selected = st.selectbox("选择文件", [str(p) for p in files], format_func=lambda x: Path(x).name)
+            with cc2:
+                st.write("")
+                if st.button("加载文件", type="primary"):
+                    set_active(load_data(selected), f"本地：{Path(selected).name}", append=append)
+                    st.success("文件已加载")
         else:
-            st.sidebar.info("没有找到本地 CSV。")
+            st.info("没有找到本地 CSV。")
     else:
-        uploaded = st.sidebar.file_uploader("上传 CSV", type=["csv"])
-        if uploaded is not None and st.sidebar.button("加载上传文件", type="primary"):
-            set_active(load_data(uploaded), f"上传：{uploaded.name}", append=append)
+        cc1, cc2 = st.columns([3, .8])
+        with cc1:
+            uploaded = st.file_uploader("上传 CSV", type=["csv"])
+        with cc2:
+            st.write("")
+            if uploaded is not None and st.button("加载上传", type="primary"):
+                set_active(load_data(uploaded), f"上传：{uploaded.name}", append=append)
+                st.success("文件已加载")
 
     if st.session_state.active_df is not None:
-        st.sidebar.markdown("---")
-        st.sidebar.success(st.session_state.active_source)
-        sources = [x["source"].split(" · ")[0] for x in st.session_state.datasets]
-        st.sidebar.caption(" / ".join(sources))
-        if st.sidebar.button("清空数据"):
-            st.session_state.datasets = []
-            st.session_state.active_df = None
-            st.session_state.active_source = None
-            st.rerun()
-
-
-def render_empty_state() -> None:
-    section_header("Start", "先加载一份真实数据", "可以直接采集 Steam 评论，也可以加载项目里已有的 CSV。做竞品对比时，左侧“追加到当前数据集”保持开启，再采集第二款游戏。")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("<div class='note-card'><h3>1. 采集评论</h3><p>适合现场演示：选择游戏，采集 Steam 公开评论。</p></div>", unsafe_allow_html=True)
-    with c2:
-        st.markdown("<div class='note-card'><h3>2. 看数据质量</h3><p>先判断样本量、时间跨度、字段是否足够，避免过度解读。</p></div>", unsafe_allow_html=True)
-    with c3:
-        st.markdown("<div class='note-card'><h3>3. 输出动作</h3><p>从玩家反馈、分层、触达和竞品对比里提炼运营建议。</p></div>", unsafe_allow_html=True)
-
-
-def render_home(df: pd.DataFrame) -> None:
-    summary = executive_summary(df)
-    section_header("Overview", "今天先看这四件事", "总览只放负责人真正会关心的指标：口碑、风险、数据范围和是否能做竞品比较。")
-    st.markdown("<div class='metric-row'>", unsafe_allow_html=True)
-    cols = st.columns(4)
-    with cols[0]: metric_card("健康分", "N/A" if summary["health_score"] is None else f"{summary['health_score']}/100", "基于公开评论，不等同收入表现")
-    with cols[1]: metric_card("正向口碑", "N/A" if summary["positive_rate"] is None else f"{summary['positive_rate']:.1%}", "好评占比")
-    with cols[2]: metric_card("负向风险", "N/A" if summary["negative_rate"] is None else f"{summary['negative_rate']:.1%}", "差评占比")
-    with cols[3]: metric_card("覆盖游戏", str(df["game_name"].nunique()) if "game_name" in df.columns else "1", "两款以上才做竞品对比")
+        s1, s2 = st.columns([3, .8])
+        with s1:
+            sources = " / ".join([item["source"].split(" · ")[0] for item in st.session_state.datasets])
+            st.caption(f"当前：{st.session_state.active_source}｜{sources}")
+        with s2:
+            if st.button("清空数据"):
+                st.session_state.datasets = []
+                st.session_state.active_df = None
+                st.session_state.active_source = None
+                st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='panel'>", unsafe_allow_html=True)
-    section_header("Priority", "可执行建议", "这里不写空泛结论，只展示能追溯到数据的动作。")
+
+def nav() -> str:
+    st.markdown("<div class='nav-wrap'>", unsafe_allow_html=True)
+    page = st.radio("页面", list(PAGE_LABELS.keys()), format_func=lambda k: PAGE_LABELS[k], horizontal=True, label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.session_state.page = page
+    return page
+
+
+def section(kicker: str, title: str, copy: str) -> None:
+    st.markdown(
+        f"""
+        <div class="section">
+          <div class="section-kicker">{kicker}</div>
+          <div class="section-title">{title}</div>
+          <div class="section-copy">{copy}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def metric(label: str, value: str, note: str) -> str:
+    return f"<div class='metric'><div class='metric-label'>{label}</div><div class='metric-value'>{value}</div><div class='metric-note'>{note}</div></div>"
+
+
+def metric_grid(cards: list[tuple[str, str, str]]) -> None:
+    st.markdown("<div class='metric-grid'>" + "".join(metric(*c) for c in cards) + "</div>", unsafe_allow_html=True)
+
+
+def empty_state() -> None:
+    section("Start", "先加载数据", "这是一个运营分析产品，不是静态展示页。请先采集 Steam 评论，或加载项目里已有的 CSV。")
+    st.markdown(
+        """
+        <div class="action-list">
+          <div class="action-card"><h3>采集真实评论</h3><p>选择游戏和评论数量，从 Steam 公开接口拉取数据。</p></div>
+          <div class="action-card"><h3>检查数据质量</h3><p>先看样本量、时间跨度和字段完整度，避免过度分析。</p></div>
+          <div class="action-card"><h3>形成运营动作</h3><p>从反馈、分层、触达和竞品对比里提炼可以执行的建议。</p></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def board(df: pd.DataFrame) -> None:
+    s = executive_summary(df)
+    section("Board", "决策看板", "负责人先看这里：当前口碑、风险范围，以及能直接推进的动作。")
+    metric_grid([
+        ("健康分", "N/A" if s["health_score"] is None else f"{s['health_score']}/100", "基于公开评论"),
+        ("正向口碑", "N/A" if s["positive_rate"] is None else f"{s['positive_rate']:.1%}", "好评占比"),
+        ("负向风险", "N/A" if s["negative_rate"] is None else f"{s['negative_rate']:.1%}", "差评占比"),
+        ("覆盖游戏", str(df["game_name"].nunique()) if "game_name" in df.columns else "1", "两款以上可做竞品对比"),
+    ])
     actions = evidence_backed_actions(df)
+    st.markdown("<div class='action-list'>", unsafe_allow_html=True)
     if not actions:
-        st.info("当前数据还不足以给出明确建议。先增加样本量或补充主题/分层字段。")
-    for item in actions:
+        st.info("当前数据还不足以给出明确建议。")
+    for item in actions[:6]:
         st.markdown(
-            f"<div class='note-card'><h3>{item['title']}</h3><p><b>依据：</b>{item['evidence']}</p><p><b>建议：</b>{item['action']}</p><p><b>注意：</b>{item['risk']}</p></div>",
+            f"<div class='action-card'><h3>{item['title']}</h3><p><b>依据：</b>{item['evidence']}</p><p><b>建议：</b>{item['action']}</p><p><b>注意：</b>{item['risk']}</p></div>",
             unsafe_allow_html=True,
         )
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_quality(df: pd.DataFrame) -> None:
+def quality(df: pd.DataFrame) -> None:
     q = evaluate_data_quality(df)
-    section_header("Data Quality", "数据质量", "先判断数据能支撑什么，再决定展示哪些分析。")
-    cols = st.columns(4)
-    with cols[0]: metric_card("样本量", f"{q.sample_size:,}", q.grade)
-    with cols[1]: metric_card("时间跨度", "N/A" if q.date_span_days is None else f"{q.date_span_days} 天", "不到 14 天不看趋势")
-    with cols[2]: metric_card("游戏数量", str(q.games_count), "两款以上可做竞品对比")
-    with cols[3]: metric_card("字段完整度", f"{sum([q.has_sentiment, q.has_topics, q.has_player_type, q.has_playtime])}/4", "口碑 / 主题 / 分层 / 时长")
-
+    section("Quality", "数据体检", "数据能支撑什么、不能支撑什么，先在这里说清楚。")
+    metric_grid([
+        ("样本量", f"{q.sample_size:,}", q.grade),
+        ("时间跨度", "N/A" if q.date_span_days is None else f"{q.date_span_days} 天", "不到 14 天不看趋势"),
+        ("游戏数量", str(q.games_count), "两款以上可做竞品对比"),
+        ("字段完整度", f"{sum([q.has_sentiment, q.has_topics, q.has_player_type, q.has_playtime])}/4", "口碑 / 主题 / 分层 / 时长"),
+    ])
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("<div class='panel'><div class='divider-title'>可以看</div>" + "".join([f"<span class='label good'>{x}</span>" for x in q.supported_modules]) + "</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h3>可以看</h3>" + "".join([f"<span class='tag good'>{x}</span>" for x in q.supported_modules]) + "</div>", unsafe_allow_html=True)
     with c2:
-        st.markdown("<div class='panel'><div class='divider-title'>暂时不能看</div>" + "".join([f"<span class='label warn'>{x}</span>" for x in q.limitations]) + "</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h3>暂时不能看</h3>" + "".join([f"<span class='tag warn'>{x}</span>" for x in q.limitations]) + "</div>", unsafe_allow_html=True)
 
 
-def render_voice(df: pd.DataFrame) -> None:
-    section_header("Player Voice", "玩家反馈", "把评论拆成口碑结构和主要话题。没有主题模型时，先用关键词归类做快速预览。")
-    c1, c2 = st.columns([1, 1.2])
+def voice(df: pd.DataFrame) -> None:
+    section("Voice", "玩家反馈", "把评论拆成口碑结构和主要话题。主题不够可靠时会明确标注。")
+    c1, c2 = st.columns([.9, 1.1])
     with c1:
         if "sentiment" in df.columns:
             counts = df["sentiment"].value_counts()
-            fig = px.pie(values=counts.values, names=counts.index, hole=.58, title="好评 / 差评", color_discrete_sequence=[OLIVE, WINE, OCHRE])
+            fig = px.pie(values=counts.values, names=counts.index, hole=.56, title="好评 / 差评", color_discrete_sequence=[OLIVE, WINE, OCHRE])
             st.plotly_chart(plot_layout(fig), width="stretch")
         else:
             st.warning("缺少口碑字段。")
@@ -495,8 +466,8 @@ def render_voice(df: pd.DataFrame) -> None:
             st.warning("缺少评论文本，无法做主题预览。")
 
 
-def render_segments(df: pd.DataFrame) -> None:
-    section_header("Segments", "玩家分层", "用公开评论和游玩时长做粗分层。它能帮运营排优先级，但不是内部 LTV 模型。")
+def segments(df: pd.DataFrame) -> None:
+    section("Segments", "玩家分层", "基于公开评论和游玩时长的粗分层，用来帮助运营排优先级。")
     if not {"playtime_forever", "sentiment"}.issubset(df.columns):
         st.warning("需要游玩时长和口碑字段才能做玩家分层。")
         return
@@ -517,17 +488,18 @@ def segment_stats(df: pd.DataFrame, segment: str) -> dict:
     neg = (part["sentiment"] == "negative").mean() if "sentiment" in part.columns and len(part) else 0
     topic = "泛体验反馈"
     if "topic_description" in part.columns and len(part):
-        topic_counts = part["topic_description"].value_counts()
-        useful = topic_counts.drop(labels=["泛体验反馈/未分类", "待归类主题"], errors="ignore")
-        topic = useful.idxmax() if len(useful) else topic_counts.idxmax()
+        counts = part["topic_description"].value_counts()
+        useful = counts.drop(labels=["泛体验反馈/未分类", "待归类主题"], errors="ignore")
+        topic = useful.idxmax() if len(useful) else counts.idxmax()
     avg_play = part["playtime_forever"].mean() if "playtime_forever" in part.columns and len(part) else 0
     return {"n": len(part), "neg": neg, "topic": topic, "avg_play": avg_play}
 
 
-def render_campaigns(df: pd.DataFrame) -> None:
-    section_header("Campaign", "触达策略", "不同玩家说不同的话。这里给的是运营参考，不是直接发布稿。")
-    segments = df["player_type"].dropna().astype(str).value_counts().index.tolist()[:4] if "player_type" in df.columns else ["新手玩家", "普通玩家", "核心玩家"]
-    for seg in segments:
+def campaigns(df: pd.DataFrame) -> None:
+    section("Campaign", "触达方案", "不同玩家说不同的话。这里给运营参考，不是直接发布稿。")
+    segs = df["player_type"].dropna().astype(str).value_counts().index.tolist()[:4] if "player_type" in df.columns else ["新手玩家", "普通玩家", "核心玩家"]
+    st.markdown("<div class='action-list'>", unsafe_allow_html=True)
+    for seg in segs:
         stat = segment_stats(df, seg)
         copy = SEGMENT_COPY.get(seg, SEGMENT_COPY["普通玩家"])
         if stat["neg"] >= .45:
@@ -541,25 +513,24 @@ def render_campaigns(df: pd.DataFrame) -> None:
             sample = f"围绕「{stat['topic']}」，我们准备了一个轻量挑战，完成后可以解锁下一阶段奖励。"
         st.markdown(
             f"""
-            <div class="note-card">
+            <div class="action-card">
               <h3>{seg}</h3>
-              <p><b>数据概况：</b>{stat['n']:,} 条评论；负向占比 {stat['neg']:.1%}；主要话题「{stat['topic']}」；平均时长 {stat['avg_play']:.1f}h</p>
+              <p><b>数据：</b>{stat['n']:,} 条；负向 {stat['neg']:.1%}；主要话题「{stat['topic']}」</p>
               <p><b>目标：</b>{copy['goal']}</p>
-              <p><b>触达内容：</b>{copy['content']}</p>
-              <p><b>调性：</b>{copy['tone']}</p>
-              <p><b>运营建议：</b>{action}</p>
-              <p><b>参考文案：</b>“{sample}”</p>
-              <p class="source-line">发布前请运营确认是否和当前版本内容一致。</p>
+              <p><b>内容：</b>{copy['content']}</p>
+              <p><b>建议：</b>{action}</p>
+              <p><b>参考：</b>“{sample}”</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_competitors(df: pd.DataFrame) -> None:
-    section_header("Competitors", "竞品对比", "连续采集两款以上游戏，并保持左侧“追加到当前数据集”开启。")
+def competitors(df: pd.DataFrame) -> None:
+    section("Competitors", "竞品对比", "连续采集两款以上游戏，并保持“追加到当前数据集”开启。")
     if "game_name" not in df.columns or df["game_name"].nunique() < 2:
-        st.warning("目前只有一款游戏。请在左边再采集或加载另一款游戏。")
+        st.warning("目前只有一款游戏。请在数据入口再采集或加载另一款游戏。")
         return
     c1, c2 = st.columns(2)
     with c1:
@@ -581,11 +552,11 @@ def render_competitors(df: pd.DataFrame) -> None:
     st.dataframe(table, width="stretch")
 
 
-def render_method() -> None:
-    section_header("Notes", "说明", "这页讲清楚产品边界，避免面试时被追问数据口径。")
+def method() -> None:
+    section("Method", "口径说明", "这里讲清楚产品边界，避免把公开评论分析说成内部经营模型。")
     st.markdown(
         """
-        <div class="panel">
+        <div class="card">
           <p><b>能支持：</b>公开评论可以支持口碑结构、痛点排序、主题变化、时长分层和竞品口碑对比。</p>
           <p><b>不能伪造：</b>真实 LTV、付费转化、留存和流失需要公司内部日志、充值、活动曝光和触达回流数据。</p>
           <p><b>主题口径：</b>当前轻量主题来自关键词归类；正式版本可以接 LDA、BERTopic 或人工标注体系。</p>
@@ -597,33 +568,31 @@ def render_method() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="GamePulse 运营洞察台", page_icon="🎮", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="GamePulse 运营洞察台", page_icon="🎮", layout="wide", initial_sidebar_state="collapsed")
     init_state()
     inject_css()
-    render_sidebar()
-
+    topbar()
     df = normalize_loaded_df(st.session_state.active_df) if st.session_state.active_df is not None else None
-    app_header(df)
-
+    hero(df)
+    data_command()
+    page = nav()
     if df is None:
-        render_empty_state()
+        empty_state()
         return
-
-    page = st.session_state.current_page
-    if page == "home":
-        render_home(df)
+    if page == "board":
+        board(df)
     elif page == "quality":
-        render_quality(df)
+        quality(df)
     elif page == "voice":
-        render_voice(df)
+        voice(df)
     elif page == "segments":
-        render_segments(df)
+        segments(df)
     elif page == "campaigns":
-        render_campaigns(df)
+        campaigns(df)
     elif page == "competitors":
-        render_competitors(df)
+        competitors(df)
     elif page == "method":
-        render_method()
+        method()
 
 
 if __name__ == "__main__":
