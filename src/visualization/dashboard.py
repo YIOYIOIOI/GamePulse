@@ -138,30 +138,28 @@ def inject_css() -> None:
           background:rgba(33,27,22,.82); border:1px solid {LINE}; border-radius:22px;
           padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(0,0,0,.24);
         }}
-        .app-shell {{ margin-top:18px; }}
-        .nav-bar {{
-          display:flex; align-items:center; justify-content:space-between; gap:14px;
-          background:rgba(24,19,15,.82); border:1px solid {LINE}; border-radius:18px;
-          padding:8px; margin-bottom:14px; box-shadow:0 14px 38px rgba(0,0,0,.24);
+        .app-shell {{ display:grid; grid-template-columns: 232px minmax(0,1fr); gap:24px; margin-top:18px; align-items:start; }}
+        .side-nav {{
+          position:sticky; top:18px; background:rgba(24,19,15,.86); border:1px solid {LINE}; border-radius:22px;
+          padding:14px; box-shadow:0 18px 44px rgba(0,0,0,.26);
         }}
-        .nav-left {{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }}
-        .nav-context {{ color:{MUTED}; font-size:12px; padding-right:6px; white-space:nowrap; }}
-        .nav-item {{
-          border:1px solid transparent; border-radius:11px; padding:8px 10px;
-          color:{MUTED}; font-weight:800; font-size:13px; line-height:1;
+        .side-title {{ color:{MUTED}; font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; margin:4px 4px 12px; }}
+        .step-row {{ display:grid; grid-template-columns: 26px 1fr; gap:10px; align-items:start; margin-bottom:7px; }}
+        .step-num {{ width:24px; height:24px; border-radius:999px; display:flex; align-items:center; justify-content:center; background:#2B231C; color:{MUTED}; font-size:11px; font-weight:900; border:1px solid {LINE}; margin-top:5px; }}
+        .step-row.active .step-num {{ background:#F3E9D8; color:#17110D; border-color:#F3E9D8; }}
+        .step-copy {{ color:{MUTED}; font-size:11px; line-height:1.45; margin:2px 0 0; }}
+        .step-row.active .step-copy {{ color:#CFC4B5; }}
+        .side-nav div[data-testid="stButton"] button {{
+          background:transparent !important; color:{MUTED} !important; border:0 !important; box-shadow:none !important;
+          padding:4px 0 !important; min-height:28px !important; text-align:left !important; justify-content:flex-start !important;
+          font-size:14px !important; font-weight:900 !important;
         }}
-        .nav-item.active {{ background:#F3E9D8; color:#17110D; border-color:#F3E9D8; }}
-        .subnav-bar {{ display:flex; gap:16px; margin:4px 0 18px; padding-left:4px; }}
-        .subnav-item {{ color:{MUTED}; font-size:13px; font-weight:800; padding:6px 0; border-bottom:2px solid transparent; }}
-        .subnav-item.active {{ color:{INK}; border-bottom-color:{CLAY}; }}
-        .nav-click-row div[data-testid="stButton"] button,
-        .subnav-click-row div[data-testid="stButton"] button {{
-          background:transparent !important; color:{MUTED} !important; border:0 !important;
-          border-radius:11px !important; padding:8px 10px !important; min-height:34px !important;
-          font-size:13px !important; font-weight:800 !important; box-shadow:none !important;
-        }}
-        .nav-click-row div[data-testid="stButton"] button:hover,
-        .subnav-click-row div[data-testid="stButton"] button:hover {{ background:#241D17 !important; color:{INK} !important; }}
+        .side-nav .active div[data-testid="stButton"] button {{ color:{INK} !important; }}
+        .side-nav div[data-testid="stButton"] button:hover {{ color:{INK} !important; background:transparent !important; }}
+        .sub-menu {{ margin: 4px 0 18px 36px; padding-left:12px; border-left:1px solid {LINE}; }}
+        .sub-menu div[data-testid="stButton"] button {{ font-size:12px !important; font-weight:800 !important; color:{MUTED} !important; min-height:24px !important; }}
+        .sub-menu .active div[data-testid="stButton"] button {{ color:{CLAY} !important; }}
+        .workspace-area {{ min-width:0; }}
         .page-hero {{
           background:linear-gradient(135deg,#211A15,#120F0C); border:1px solid {LINE}; border-radius:28px;
           padding:30px 34px; margin-bottom:20px; box-shadow:0 22px 60px rgba(0,0,0,.30);
@@ -200,7 +198,43 @@ def inject_css() -> None:
         .stButton > button {{ background:#F3E9D8 !important; color:#17110D !important; border:1px solid #F3E9D8 !important; border-radius:14px !important; font-weight:900 !important; }}
         .stButton > button:hover {{ background:#D9CBB8 !important; border-color:#D9CBB8 !important; }}
         div[data-baseweb="select"] > div, input, textarea {{ background:{CARD} !important; border-color:{LINE} !important; }}
-        .stFileUploader {{ background:{CARD}; border:1px dashed {LINE}; border-radius:18px; padding:10px; }}
+        /* Theme native Streamlit widgets so they do not look like defaults */
+        div[data-baseweb="select"] > div {{
+          background:#17120E !important; border:1px solid {LINE} !important; border-radius:14px !important;
+          color:{INK} !important; box-shadow:none !important; min-height:42px;
+        }}
+        div[data-baseweb="select"] span {{ color:{INK} !important; }}
+        div[data-baseweb="popover"] div {{ background:#211B16 !important; color:{INK} !important; }}
+        input, textarea {{
+          background:#17120E !important; border:1px solid {LINE} !important; border-radius:14px !important;
+          color:{INK} !important; box-shadow:none !important;
+        }}
+        label, .stSlider label, .stCheckbox label, .stSelectbox label, .stNumberInput label, .stTextInput label {{
+          color:{MUTED} !important; font-size:12px !important; font-weight:800 !important;
+        }}
+        div[data-testid="stSlider"] [data-baseweb="slider"] > div {{ background:#3C3229 !important; }}
+        div[data-testid="stSlider"] [role="slider"] {{
+          background:#F3E9D8 !important; border:2px solid #17110D !important; box-shadow:0 0 0 2px {CLAY} !important;
+        }}
+        div[data-testid="stSlider"] [data-testid="stTickBar"] {{ color:{MUTED} !important; }}
+        div[data-testid="stCheckbox"] label span:first-child {{
+          background:#17120E !important; border:1px solid {LINE} !important; border-radius:6px !important;
+        }}
+        div[data-testid="stCheckbox"] label span:first-child:has(input:checked),
+        div[data-testid="stCheckbox"] label:has(input:checked) span:first-child {{
+          background:#F3E9D8 !important; border-color:#F3E9D8 !important;
+        }}
+        .stFileUploader {{
+          background:#17120E !important; border:1px dashed {LINE} !important; border-radius:18px !important; padding:14px !important;
+        }}
+        .stFileUploader section {{ background:transparent !important; border:0 !important; color:{MUTED} !important; }}
+        .stFileUploader small, .stFileUploader span {{ color:{MUTED} !important; }}
+        div[data-testid="stNumberInput"] button {{
+          background:#2A221C !important; color:{INK} !important; border-color:{LINE} !important;
+        }}
+        div[data-testid="stAlert"] {{
+          background:#211B16 !important; border:1px solid {LINE} !important; border-radius:18px !important; color:{INK} !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -329,6 +363,11 @@ def set_sub(sub: str) -> None:
     st.session_state.sub_page = sub
 
 
+def go(primary: str, sub: str | None = None) -> None:
+    st.session_state.primary_page = primary
+    st.session_state.sub_page = sub or next(iter(SUB_PAGES[primary].keys()))
+
+
 def data_status_chip(df: pd.DataFrame | None) -> str:
     if df is None or len(df) == 0:
         return "<div class='data-chip'><b>未加载数据</b><br>去数据中心接入数据</div>"
@@ -336,32 +375,35 @@ def data_status_chip(df: pd.DataFrame | None) -> str:
     return f"<div class='data-chip'><b>{len(df):,} 条记录 · {games} 款游戏</b><br>{st.session_state.active_source or '当前数据集'}</div>"
 
 
-def product_nav(df: pd.DataFrame | None) -> tuple[str, str]:
+def side_nav(df: pd.DataFrame | None) -> tuple[str, str]:
     primary, sub = current_route()
-    st.markdown("<div class='nav-bar'><div class='nav-left'>", unsafe_allow_html=True)
-    cols = st.columns([1,1,1,1,1,1,1.25])
-    keys = list(PRIMARY_PAGES.keys())
-    st.markdown("<div class='nav-click-row'>", unsafe_allow_html=True)
-    for col, key in zip(cols[:6], keys):
-        with col:
-            if st.button(PRIMARY_PAGES[key], key=f"nav_{key}", use_container_width=True):
-                set_primary(key)
-                st.rerun()
-    with cols[6]:
-        st.markdown(data_status_chip(df), unsafe_allow_html=True)
-    st.markdown("</div></div></div>", unsafe_allow_html=True)
-
-    primary, sub = current_route()
-    options = SUB_PAGES[primary]
-    if len(options) > 1:
-        st.markdown("<div class='subnav-click-row'>", unsafe_allow_html=True)
-        sub_cols = st.columns([1] * len(options) + [8])
-        for col, (key, label) in zip(sub_cols, options.items()):
-            with col:
-                if st.button(label, key=f"sub_{primary}_{key}", use_container_width=True):
-                    set_sub(key)
+    steps = [
+        ("workspace", "工作台", "先看结论和下一步动作"),
+        ("data", "数据中心", "采集、上传、体检数据"),
+        ("insight", "洞察分析", "看玩家反馈和分层"),
+        ("strategy", "运营策略", "生成触达方案"),
+        ("competition", "竞品研究", "比较多款游戏"),
+        ("method", "口径说明", "说明数据边界"),
+    ]
+    st.markdown("<aside class='side-nav'><div class='side-title'>Workflow</div>", unsafe_allow_html=True)
+    for idx, (key, label, desc) in enumerate(steps, start=1):
+        active = " active" if key == primary else ""
+        st.markdown(f"<div class='step-row{active}'><div class='step-num'>{idx}</div><div>", unsafe_allow_html=True)
+        if st.button(label, key=f"side_{key}", use_container_width=True):
+            go(key)
+            st.rerun()
+        st.markdown(f"<div class='step-copy'>{desc}</div></div></div>", unsafe_allow_html=True)
+        if key == primary and len(SUB_PAGES[key]) > 1:
+            st.markdown("<div class='sub-menu'>", unsafe_allow_html=True)
+            for sub_key, sub_label in SUB_PAGES[key].items():
+                sub_active = " active" if sub_key == sub else ""
+                st.markdown(f"<div class='{sub_active}'>", unsafe_allow_html=True)
+                if st.button(sub_label, key=f"sub_{key}_{sub_key}", use_container_width=True):
+                    set_sub(sub_key)
                     st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:10px'></div>" + data_status_chip(df) + "</aside>", unsafe_allow_html=True)
     return current_route()
 
 
@@ -423,7 +465,9 @@ def data_command() -> None:
                     else:
                         out = save_collected_reviews(df_new, game_name)
                         set_active(df_new, f"Steam：{game_name} · {out.name}", append=append)
-                        st.success(f"已采集 {len(df_new):,} 条评论")
+                        go("workspace", "board")
+                        st.success(f"已采集 {len(df_new):,} 条评论，已回到工作台。")
+                        st.rerun()
     elif source == "本地文件":
         files = find_default_files()
         if files:
@@ -434,7 +478,9 @@ def data_command() -> None:
                 st.write("")
                 if st.button("加载文件", type="primary"):
                     set_active(load_data(selected), f"本地：{Path(selected).name}", append=append)
-                    st.success("文件已加载")
+                    go("workspace", "board")
+                    st.success("文件已加载，已回到工作台。")
+                    st.rerun()
         else:
             st.info("没有找到本地 CSV。")
     else:
@@ -445,7 +491,9 @@ def data_command() -> None:
             st.write("")
             if uploaded is not None and st.button("加载上传", type="primary"):
                 set_active(load_data(uploaded), f"上传：{uploaded.name}", append=append)
-                st.success("文件已加载")
+                go("workspace", "board")
+                st.success("文件已加载，已回到工作台。")
+                st.rerun()
 
     if st.session_state.active_df is not None:
         s1, s2 = st.columns([3, .8])
@@ -509,13 +557,20 @@ def metric_grid(cards: list[tuple[str, str, str]]) -> None:
 
 
 def empty_state() -> None:
-    section("Start", "先加载数据", "这是一个运营分析产品，不是静态展示页。请先采集 Steam 评论，或加载项目里已有的 CSV。")
+    section("Start", "工作台还没有数据", "先去数据中心采集或加载一份真实数据。完成后系统会自动回到工作台展示结论。")
+    c1, c2 = st.columns([.35, .65])
+    with c1:
+        if st.button("去数据中心采集数据", type="primary", use_container_width=True):
+            go("data", "source")
+            st.rerun()
+    with c2:
+        st.markdown("<div class='note'>建议演示路径：数据中心接入数据 → 数据体检 → 玩家反馈 → 玩家分层 → 触达方案 → 竞品研究。</div>", unsafe_allow_html=True)
     st.markdown(
         """
         <div class="action-list">
-          <div class="action-card"><h3>采集真实评论</h3><p>选择游戏和评论数量，从 Steam 公开接口拉取数据。</p></div>
-          <div class="action-card"><h3>检查数据质量</h3><p>先看样本量、时间跨度和字段完整度，避免过度分析。</p></div>
-          <div class="action-card"><h3>形成运营动作</h3><p>从反馈、分层、触达和竞品对比里提炼可以执行的建议。</p></div>
+          <div class="action-card"><h3>1. 数据中心</h3><p>采集 Steam 评论，或加载项目已有 CSV。</p></div>
+          <div class="action-card"><h3>2. 数据体检</h3><p>检查样本量、时间跨度和字段完整度。</p></div>
+          <div class="action-card"><h3>3. 输出动作</h3><p>基于反馈、分层和竞品对比生成运营建议。</p></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -690,7 +745,8 @@ def main() -> None:
     df = normalize_loaded_df(st.session_state.active_df) if st.session_state.active_df is not None else None
 
     st.markdown("<div class='app-shell'>", unsafe_allow_html=True)
-    primary, page = product_nav(df)
+    primary, page = side_nav(df)
+    st.markdown("<main class='workspace-area'>", unsafe_allow_html=True)
     page_header(primary, page, df)
 
     if primary == "data" and page == "source":
@@ -712,7 +768,7 @@ def main() -> None:
     elif page == "method":
         method()
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</main></div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
