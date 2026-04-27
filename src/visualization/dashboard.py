@@ -86,7 +86,10 @@ def inject_css() -> None:
             linear-gradient(180deg, #0F0C09 0%, #17110D 48%, #1E1712 100%);
           color: {INK};
         }}
-        .block-container {{ max-width: 1500px; padding: 26px 44px 80px; }}
+        header[data-testid="stHeader"] {{ display: none !important; }}
+        div[data-testid="stToolbar"] {{ display: none !important; }}
+        #MainMenu, footer {{ visibility: hidden !important; height: 0 !important; }}
+        .block-container {{ max-width: 1500px; padding: 18px 44px 80px; }}
         section[data-testid="stSidebar"] {{ display: none !important; }}
         [data-testid="collapsedControl"] {{ display: none !important; }}
         h1, h2, h3 {{ color: {INK}; letter-spacing: -.03em; }}
