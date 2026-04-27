@@ -6,11 +6,33 @@ import Papa from 'papaparse';
 import { Upload, Download, Trash2, CheckCircle2, PlusCircle, FileSpreadsheet } from 'lucide-react';
 import clsx from 'clsx';
 
+type OperationProgress = { label: string; value: number } | null;
+
+function ProgressBar({ progress }: { progress: OperationProgress }) {
+  if (!progress) return null;
+  return (
+    <div className="mt-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/70 dark:bg-blue-950/20 px-3 py-2">
+      <div className="flex items-center justify-between text-xs mb-2">
+        <span className="font-medium text-blue-700 dark:text-blue-300">{progress.label}</span>
+        <span className="font-mono text-blue-600 dark:text-blue-300">{Math.round(progress.value)}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-blue-100 dark:bg-blue-900/50 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300 ease-out"
+          style={{ width: `${Math.min(100, Math.max(0, progress.value))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void }) {
   const { data, status, appendData, clearData } = useDataStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchProgress, setSearchProgress] = useState<OperationProgress>(null);
+  const [fetchProgress, setFetchProgress] = useState<OperationProgress>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SteamAppSearchResult[]>([]);
   const [steamConfig, setSteamConfig] = useState({
@@ -25,16 +47,26 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
   const handleGameSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
+    setSearchProgress({ label: '正在连接 Steam 搜索服务...', value: 12 });
+    const timer = window.setInterval(() => {
+      setSearchProgress(prev => prev ? { ...prev, value: Math.min(prev.value + 14, 86) } : prev);
+    }, 350);
     try {
+      setSearchProgress({ label: '正在搜索候选游戏...', value: 28 });
       const results = await searchSteamApps(searchQuery);
+      setSearchProgress({ label: results.length > 0 ? `找到 ${results.length} 个候选游戏` : '没有找到候选游戏', value: 100 });
       setSearchResults(results);
       if (results.length > 0) {
         const first = results[0];
         setSteamConfig(prev => ({ ...prev, gameName: 'Custom', customName: first.name, appId: String(first.app_id) }));
       }
+      window.setTimeout(() => setSearchProgress(null), 1200);
     } catch (e) {
+      setSearchProgress({ label: '搜索失败，请稍后重试', value: 100 });
       alert(e instanceof Error ? e.message : 'Steam 游戏搜索失败。');
+      window.setTimeout(() => setSearchProgress(null), 1600);
     } finally {
+      window.clearInterval(timer);
       setIsSearching(false);
     }
   };
@@ -45,15 +77,32 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
 
   const handleSteamFetch = async () => {
     setIsFetching(true);
+    setFetchProgress({ label: '正在连接 Steam 评论接口...', value: 8 });
+    const timer = window.setInterval(() => {
+      setFetchProgress(prev => {
+        if (!prev) return prev;
+        const step = steamConfig.count >= 2000 ? 4 : steamConfig.count >= 1000 ? 6 : 9;
+        return { ...prev, value: Math.min(prev.value + step, 88) };
+      });
+    }, 500);
     try {
       const finalGameName = steamConfig.gameName === 'Custom' ? (steamConfig.customName || 'Custom Game') : steamConfig.gameName;
+      setFetchProgress({ label: `正在采集《${finalGameName}》评论...`, value: 18 });
       const rawData = await fetchSteamReviews({ ...steamConfig, gameName: finalGameName });
+      setFetchProgress({ label: `已采集 ${rawData.length.toLocaleString()} 条评论，正在标准化字段...`, value: 92 });
       const standardData = standardizeData(rawData, finalGameName);
       appendData(standardData, `Steam: ${finalGameName}`);
-      onChangeView('workbench');
+      setFetchProgress({ label: '采集完成，正在进入工作台...', value: 100 });
+      window.setTimeout(() => {
+        setFetchProgress(null);
+        onChangeView('workbench');
+      }, 500);
     } catch (e) {
+      setFetchProgress({ label: '采集失败，请检查 App ID、网络或评论类型', value: 100 });
       alert(e instanceof Error ? e.message : 'Steam 数据采集失败。');
+      window.setTimeout(() => setFetchProgress(null), 1800);
     } finally {
+      window.clearInterval(timer);
       setIsFetching(false);
     }
   };
@@ -135,6 +184,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                    {isSearching ? '搜索中...' : '搜索'}
                  </button>
                </div>
+               <ProgressBar progress={searchProgress} />
                {searchResults.length > 0 && (
                  <div className="mt-3 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-700/60">
                    {searchResults.slice(0, 5).map(app => (
@@ -232,6 +282,8 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                 </select>
              </div>
            </div>
+
+           <ProgressBar progress={fetchProgress} />
 
            <button
              onClick={handleSteamFetch}
