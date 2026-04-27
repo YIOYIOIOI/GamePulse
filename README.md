@@ -375,3 +375,31 @@ A: 不是必须的。CPU模式下也能运行，只是速度较慢。如有NVIDI
 ---
 
 **注**: 本项目仅用于学习和研究目的。使用Steam数据时请遵守Steam服务条款和API使用政策。
+
+## React Product Frontend
+
+The product-grade frontend from `C:\Users\YIOYIO\Downloads\zip` is now integrated under `frontend/`.
+
+Run the local Python API first:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\gamepulse_api_server.py --port 8765
+```
+
+Then run the React/Vite frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev -- --port 3010 --host 127.0.0.1
+```
+
+Open: http://127.0.0.1:3010/
+
+Current API wiring:
+
+- `GET /api/steam/search?q=<game>` searches Steam apps by game name.
+- `POST /api/steam/reviews` collects real Steam reviews via the existing lightweight collector.
+- `POST /api/analyze` returns the existing backend analysis package.
+
+The older Streamlit dashboard remains in `src/visualization/dashboard.py` as a legacy fallback, but the intended product UI is now `frontend/`.

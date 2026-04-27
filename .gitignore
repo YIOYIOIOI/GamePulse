@@ -73,3 +73,9 @@ config/secrets.yaml
 
 # Test output
 test_output/
+
+# React frontend source exceptions
+!frontend/
+!frontend/src/
+!frontend/src/lib/
+!frontend/src/lib/**
