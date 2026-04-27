@@ -1,11 +1,9 @@
-"""GamePulse AI Ops Console — product-grade Streamlit UI."""
+"""GamePulse 运营洞察台 — product UI."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Iterable
-
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -125,23 +123,46 @@ def init_state() -> None:
     st.session_state.setdefault("active_source", None)
 
 
+def humanize_topic(value: object) -> str:
+    """Convert raw model word-bags into business-readable topic labels."""
+    text = str(value or "").strip()
+    if not text:
+        return "泛体验反馈/未分类"
+    text_l = text.lower()
+    for topic, keywords in TOPIC_RULES.items():
+        if any(kw in text_l for kw in keywords):
+            return topic
+    # Existing LDA outputs may look like comma-separated word bags. Do not expose
+    # raw tokens such as "muy, si, moba" as product-facing labels.
+    if "," in text and len(text) < 120:
+        return "待归类主题"
+    return text
+
+
+def classify_review_topic(text: object) -> str:
+    text_l = str(text or "").lower()
+    scores = {topic: sum(1 for kw in kws if kw in text_l) for topic, kws in TOPIC_RULES.items()}
+    best, score = max(scores.items(), key=lambda x: x[1])
+    if score == 0:
+        return "泛体验反馈/未分类"
+    return best
+
+
 def infer_topics(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     if "topic_description" in out.columns:
+        out["topic_description_raw"] = out["topic_description"]
+        out["topic_description"] = out["topic_description"].map(humanize_topic)
+        if "review_text" in out.columns:
+            needs_fallback = out["topic_description"].eq("待归类主题") | out["topic_description"].eq("泛体验反馈/未分类")
+            out.loc[needs_fallback, "topic_description"] = out.loc[needs_fallback, "review_text"].map(classify_review_topic)
+            out.loc[needs_fallback, "topic_source"] = "review_keyword_fallback"
         return out
     if "review_text" not in out.columns:
         return out
 
-    def classify(text: str) -> str:
-        text_l = str(text).lower()
-        scores = {topic: sum(1 for kw in kws if kw in text_l) for topic, kws in TOPIC_RULES.items()}
-        best, score = max(scores.items(), key=lambda x: x[1])
-        if score == 0:
-            return "泛体验反馈/未分类"
-        return best
-
-    out["topic_description"] = out["review_text"].map(classify)
-    out["topic_source"] = "keyword_proxy"
+    out["topic_description"] = out["review_text"].map(classify_review_topic)
+    out["topic_source"] = "keyword_preview"
     return out
 
 
@@ -196,10 +217,10 @@ def page_header() -> None:
         """
         <div class="hero">
           <div class="hero-content">
-            <div class="eyebrow">AI STRATEGY OPERATIONS CONSOLE</div>
-            <h1>GamePulse<br/>运营智能中枢</h1>
-            <p>从真实 Steam 玩家评论出发，构建玩家声音、生命周期代理、智能触达、内容生产与竞品监控的一体化工作台。数据不足时降级，不伪造 LTV、付费转化或留存结论。</p>
-            <span class="pill">真实采集</span><span class="pill">证据优先</span><span class="pill">面试可讲</span><span class="pill">运营可用</span>
+            <div class="eyebrow">GAME OPERATIONS DASHBOARD</div>
+            <h1>GamePulse<br/>游戏运营洞察平台</h1>
+            <p>从 Steam 真实评论出发，帮运营团队快速看清：玩家在抱怨什么、该优先处理谁、怎么触达、竞品在发生什么变化。</p>
+            <span class="pill">真实评论</span><span class="pill">可解释指标</span><span class="pill">运营动作</span><span class="pill">竞品对比</span>
           </div>
         </div>
         """,
@@ -208,11 +229,11 @@ def page_header() -> None:
 
 
 def render_collection_panel() -> None:
-    st.sidebar.subheader("数据工作台")
-    mode = st.sidebar.radio("数据入口", ["Steam采集", "本地文件", "上传CSV"], horizontal=False)
-    append = st.sidebar.checkbox("追加到当前数据集（用于竞品监控）", value=True)
+    st.sidebar.subheader("数据")
+    mode = st.sidebar.radio("来源", ["Steam 采集", "本地文件", "上传 CSV"], horizontal=False)
+    append = st.sidebar.checkbox("追加到当前数据集（用于竞品对比）", value=True)
 
-    if mode == "Steam采集":
+    if mode == "Steam 采集":
         presets = {"DOTA 2": 570, "Elden Ring": 1245620, "Baldur's Gate 3": 1086940, "Cyberpunk 2077": 1091500, "自定义": 0}
         preset = st.sidebar.selectbox("游戏", list(presets.keys()))
         app_id = presets[preset]
@@ -223,14 +244,14 @@ def render_collection_panel() -> None:
         max_reviews = st.sidebar.slider("采集评论数", 100, 5000, 1000, 100)
         language = st.sidebar.selectbox("语言", ["all", "english", "schinese"], index=0)
         review_type = st.sidebar.selectbox("评论类型", ["all", "positive", "negative"], index=0)
-        if st.sidebar.button("采集并加载", type="primary"):
+        if st.sidebar.button("采集数据", type="primary"):
             with st.spinner(f"正在采集 {game_name} 的 Steam 评论..."):
                 df_new = fetch_steam_reviews(int(app_id), game_name, int(max_reviews), language, review_type)
                 if df_new.empty:
                     st.sidebar.error("未采集到有效评论。")
                 else:
                     out = save_collected_reviews(df_new, game_name)
-                    set_active(df_new, f"Steam采集：{game_name} · {out.name}", append=append)
+                    set_active(df_new, f"Steam 采集：{game_name} · {out.name}", append=append)
                     st.sidebar.success(f"已采集 {len(df_new):,} 条")
 
     elif mode == "本地文件":
@@ -251,7 +272,7 @@ def render_collection_panel() -> None:
         st.sidebar.caption(st.session_state.active_source)
         if st.session_state.datasets:
             st.sidebar.caption("数据集：" + " / ".join([x["source"].split(" · ")[0] for x in st.session_state.datasets]))
-    if st.sidebar.button("清空全部数据"):
+    if st.sidebar.button("清空数据"):
         st.session_state.datasets = []
         st.session_state.active_df = None
         st.session_state.active_source = None
@@ -260,68 +281,68 @@ def render_collection_panel() -> None:
 
 def render_overview(df: pd.DataFrame) -> None:
     s = executive_summary(df)
-    st.markdown("<div class='section-title'>运营总览</div><div class='section-subtitle'>面向负责人：当前口碑健康度、风险、证据和动作。</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>总览</div><div class='section-subtitle'>当前产品口碑和需要关注的风险点。</div>", unsafe_allow_html=True)
     cols = st.columns(4)
-    with cols[0]: metric_card("健康分", "N/A" if s["health_score"] is None else f"{s['health_score']}/100", "公开评论代理")
-    with cols[1]: metric_card("正向口碑", "N/A" if s["positive_rate"] is None else f"{s['positive_rate']:.1%}", "sentiment / vote_up")
-    with cols[2]: metric_card("负向风险", "N/A" if s["negative_rate"] is None else f"{s['negative_rate']:.1%}", "差评占比")
-    with cols[3]: metric_card("游戏数", str(df["game_name"].nunique()) if "game_name" in df.columns else "1", "≥2 支持竞品监控")
+    with cols[0]: metric_card("健康分", "N/A" if s["health_score"] is None else f"{s['health_score']}/100", "基于公开评论")
+    with cols[1]: metric_card("正向口碑", "N/A" if s["positive_rate"] is None else f"{s['positive_rate']:.1%}", "好评 / 差评")
+    with cols[2]: metric_card("负向风险", "N/A" if s["negative_rate"] is None else f"{s['negative_rate']:.1%}", "关注负向趋势")
+    with cols[3]: metric_card("游戏数", str(df["game_name"].nunique()) if "game_name" in df.columns else "1", "两款以上可做对比")
 
     st.markdown("<br>", unsafe_allow_html=True)
     for a in evidence_backed_actions(df):
-        st.markdown(f"<div class='strategy-card'><h3>{a['title']}</h3><p><b>Evidence</b> · {a['evidence']}</p><p><b>Action</b> · {a['action']}</p><p class='small'><b>Risk</b> · {a['risk']}</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='strategy-card'><h3>{a['title']}</h3><p><b>依据</b> · {a['evidence']}</p><p><b>建议</b> · {a['action']}</p><p class='small'><b>注意</b> · {a['risk']}</p></div>", unsafe_allow_html=True)
 
 
 def render_quality_gate(df: pd.DataFrame) -> None:
     q = evaluate_data_quality(df)
-    st.markdown("<div class='section-title'>数据可信度</div><div class='section-subtitle'>决定哪些产品功能可以展示，哪些必须降级。</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>数据质量</div><div class='section-subtitle'>数据够不够用、能支撑哪些分析。</div>", unsafe_allow_html=True)
     cols = st.columns(4)
     with cols[0]: metric_card("样本量", f"{q.sample_size:,}", q.grade)
-    with cols[1]: metric_card("时间跨度", "N/A" if q.date_span_days is None else f"{q.date_span_days} 天", "<14天不输出趋势")
-    with cols[2]: metric_card("竞品数量", str(q.games_count), "至少2款")
-    with cols[3]: metric_card("信号完整度", f"{sum([q.has_sentiment, q.has_topics, q.has_player_type, q.has_playtime])}/4", "情绪/主题/分群/时长")
+    with cols[1]: metric_card("时间跨度", "N/A" if q.date_span_days is None else f"{q.date_span_days} 天", "不到14天看不出趋势")
+    with cols[2]: metric_card("竞品数量", str(q.games_count), "两款以上才有对比意义")
+    with cols[3]: metric_card("信号完整度", f"{sum([q.has_sentiment, q.has_topics, q.has_player_type, q.has_playtime])}/4", "口碑 / 主题 / 玩家分层 / 时长")
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("<div class='ok'><b>可支持</b><br>" + "<br>".join([f"✅ {x}" for x in q.supported_modules]) + "</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ok'><b>可以看</b><br>" + "<br>".join([f"✅ {x}" for x in q.supported_modules]) + "</div>", unsafe_allow_html=True)
     with c2:
-        st.markdown("<div class='warning'><b>限制</b><br>" + "<br>".join([f"⚠️ {x}" for x in q.limitations]) + "</div>", unsafe_allow_html=True)
+        st.markdown("<div class='warning'><b>暂时不能看</b><br>" + "<br>".join([f"⚠️ {x}" for x in q.limitations]) + "</div>", unsafe_allow_html=True)
 
 
 def render_voice(df: pd.DataFrame) -> None:
-    st.markdown("<div class='section-title'>玩家声音洞察</div><div class='section-subtitle'>主题字段缺失时，系统使用透明的关键词代理规则，不假装是深度主题模型。</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>玩家反馈</div><div class='section-subtitle'>没有跑过主题模型的数据，会先用关键词做快速归类，标注清楚来源。</div>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         if "sentiment" in df.columns:
             counts = df["sentiment"].value_counts()
-            fig = px.pie(values=counts.values, names=counts.index, hole=.62, title="情绪结构", color_discrete_sequence=[ACCENT, RED, AMBER])
+            fig = px.pie(values=counts.values, names=counts.index, hole=.62, title="好评 vs 差评", color_discrete_sequence=[ACCENT, RED, AMBER])
             fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     with c2:
         if "topic_description" in df.columns:
             topics = df["topic_description"].value_counts().head(10).sort_values()
-            fig = px.bar(x=topics.values, y=topics.index, orientation="h", title="Top主题/痛点", color=topics.values, color_continuous_scale=[BLUE, ACCENT])
+            fig = px.bar(x=topics.values, y=topics.index, orientation="h", title="玩家在说什么", color=topics.values, color_continuous_scale=[BLUE, ACCENT])
             fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             if "topic_source" in df.columns:
-                st.caption("当前主题为关键词代理标签；若跑完整 LDA/BERTopic，可替换为模型主题。")
+                st.caption("这些主题是关键词归类的结果，正式对外前建议抽样复核。")
 
 
 def render_lifecycle(df: pd.DataFrame) -> None:
-    st.markdown("<div class='section-title'>生命周期代理分析</div><div class='section-subtitle'>这不是财务 LTV，而是公开评论数据上的价值潜力 / 流失风险代理。</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>玩家分层</div><div class='section-subtitle'>这里展示的是基于公开评论和游玩时长的风险判断，不等同于公司内部的真实 LTV 或留存模型。</div>", unsafe_allow_html=True)
     if not {"playtime_forever", "sentiment"}.issubset(df.columns):
-        st.warning("缺少游玩时长或情绪字段，无法计算生命周期代理。")
+        st.warning("需要游玩时长和口碑数据才能做这个分析。")
         return
     proxy = build_lifecycle_proxy(df)
     c1, c2 = st.columns(2)
     with c1:
-        fig = px.histogram(proxy, x="value_potential_score", color="player_type" if "player_type" in proxy.columns else None, title="价值潜力代理")
+        fig = px.histogram(proxy, x="value_potential_score", color="player_type" if "player_type" in proxy.columns else None, title="活跃价值分")
         fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with c2:
-        fig = px.histogram(proxy, x="churn_risk_proxy", color="crm_priority", title="流失风险代理")
+        fig = px.histogram(proxy, x="churn_risk_proxy", color="crm_priority", title="流失风险分")
         fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(proxy[[c for c in ["game_name", "player_type", "sentiment", "topic_description", "value_potential_score", "churn_risk_proxy", "crm_priority", "review_text"] if c in proxy.columns]].head(200), use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
+    st.dataframe(proxy[[c for c in ["game_name", "player_type", "sentiment", "topic_description", "value_potential_score", "churn_risk_proxy", "crm_priority", "review_text"] if c in proxy.columns]].head(200), width="stretch")
 
 
 def segment_stats(df: pd.DataFrame, segment: str) -> dict:
@@ -333,7 +354,7 @@ def segment_stats(df: pd.DataFrame, segment: str) -> dict:
 
 
 def render_crm_content(df: pd.DataFrame) -> None:
-    st.markdown("<div class='section-title'>CRM策略与AI内容生产</div><div class='section-subtitle'>按分群生成不同目标、内容、语气和证据，不再复用同一张卡。</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>触达策略</div><div class='section-subtitle'>不同类型的玩家，用不同的方式说话。</div>", unsafe_allow_html=True)
     if "player_type" in df.columns:
         segments = df["player_type"].dropna().astype(str).value_counts().index.tolist()[:4]
     else:
@@ -354,13 +375,13 @@ def render_crm_content(df: pd.DataFrame) -> None:
             f"""
             <div class="strategy-card">
               <h3>{seg} · 触达策略卡</h3>
-              <p><b>样本证据：</b>{stat['n']:,} 条；负向占比 {stat['neg']:.1%}；主主题「{stat['topic']}」；平均时长 {stat['avg_play']:.1f}h</p>
+              <p><b>数据概况：</b>{stat['n']:,} 条；负向占比 {stat['neg']:.1%}；主主题「{stat['topic']}」；平均时长 {stat['avg_play']:.1f}h</p>
               <p><b>目标：</b>{copy['goal']}</p>
-              <p><b>内容方向：</b>{copy['content']}</p>
-              <p><b>语气：</b>{copy['tone']}</p>
-              <p><b>建议动作：</b>{action}</p>
-              <p><b>AI文案草案：</b>“{sample}”</p>
-              <p class="small">发布前必须由运营校验是否符合真实版本内容；若主题为关键词代理，应抽样人工复核。</p>
+              <p><b>触达内容：</b>{copy['content']}</p>
+              <p><b>调性：</b>{copy['tone']}</p>
+              <p><b>运营建议：</b>{action}</p>
+              <p><b>参考文案：</b>“{sample}”</p>
+              <p class="small">发布前请运营确认内容是否和当前版本一致。关键词归类的主题建议抽查。</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -368,64 +389,64 @@ def render_crm_content(df: pd.DataFrame) -> None:
 
 
 def render_competitor(df: pd.DataFrame) -> None:
-    st.markdown("<div class='section-title'>竞品监控</div><div class='section-subtitle'>请在侧边栏勾选“追加到当前数据集”，连续采集/加载多款游戏后自动形成竞品对比。</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>竞品对比</div><div class='section-subtitle'>连续采集两款以上游戏，开启“追加”就能做对比。</div>", unsafe_allow_html=True)
     if "game_name" not in df.columns or df["game_name"].nunique() < 2:
-        st.warning("当前只有一款游戏数据。请在左侧继续采集另一款游戏，并保持“追加到当前数据集”开启。")
+        st.warning("目前只有一款游戏。在左边再采集一款，“追加”开着就行。")
         return
     c1, c2 = st.columns(2)
     with c1:
         if "sentiment" in df.columns:
             comp = pd.crosstab(df["game_name"], df["sentiment"], normalize="index").reset_index()
-            fig = px.bar(comp, x="game_name", y=[c for c in comp.columns if c != "game_name"], barmode="stack", title="竞品口碑结构")
+            fig = px.bar(comp, x="game_name", y=[c for c in comp.columns if c != "game_name"], barmode="stack", title="各游戏口碑对比")
             fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     with c2:
         topic_game = df.groupby(["game_name", "topic_description"]).size().reset_index(name="count") if "topic_description" in df.columns else pd.DataFrame()
         if not topic_game.empty:
             top = topic_game.sort_values("count", ascending=False).groupby("game_name").head(3)
-            fig = px.bar(top, x="count", y="topic_description", color="game_name", orientation="h", title="各游戏Top主题")
+            fig = px.bar(top, x="count", y="topic_description", color="game_name", orientation="h", title="各游戏玩家关注点")
             fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(df.groupby("game_name").agg(records=("review_text", "count"), positive_rate=("sentiment", lambda x: (x == "positive").mean() if len(x) else 0), top_topic=("topic_description", lambda x: x.value_counts().idxmax() if len(x) else "")).reset_index(), use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
+    st.dataframe(df.groupby("game_name").agg(records=("review_text", "count"), positive_rate=("sentiment", lambda x: (x == "positive").mean() if len(x) else 0), top_topic=("topic_description", lambda x: x.value_counts().idxmax() if len(x) else "")).reset_index(), width="stretch")
 
 
 def render_methodology() -> None:
-    st.markdown("<div class='section-title'>方法与边界</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>说明</div>", unsafe_allow_html=True)
     st.markdown("""
-- 公开 Steam 评论可以支持：情绪、主题、痛点、游玩时长代理、竞品口碑对比。
-- 真实 LTV / 付费转化 / 留存流失必须接入内部日志、充值、活动曝光和触达回流。
-- 当前轻量主题是关键词代理；完整分析可替换为 LDA/BERTopic。
-- 数据不足时页面会降级，不输出伪结论。
+- 公开评论能做的事：口碑分布、痛点排序、主题变化、时长分层、竞品对比。
+- 做不到的事：真实 LTV、付费转化、留存和流失——这些需要公司内部数据。
+- 当前主题是关键词归类，升级路径是 LDA / BERTopic / 人工标注。
+- 数据不够的模块会降级，不编没依据的结论。
 """)
 
 
 def main() -> None:
-    st.set_page_config(page_title="GamePulse AI Ops Console", page_icon="🎮", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="GamePulse 运营洞察台", page_icon="🎮", layout="wide", initial_sidebar_state="expanded")
     init_state()
     inject_css()
     page_header()
     render_collection_panel()
 
     if st.session_state.active_df is None:
-        st.info("从左侧开始：采集 Steam 评论、加载本地文件，或上传 CSV。竞品监控请连续追加两款以上游戏。")
+        st.info("在左边选一个入口开始。要做竞品对比的话，连续采集两款以上游戏就行。")
         return
 
     df = normalize_loaded_df(st.session_state.active_df)
-    page = st.sidebar.radio("产品模块", ["运营总览", "数据可信度", "生命周期代理", "玩家声音洞察", "触达与内容生产", "竞品监控", "方法与边界"])
+    page = st.sidebar.radio("功能", ["总览", "数据质量", "玩家分层", "玩家反馈", "触达策略", "竞品对比", "说明"])
 
-    if page == "运营总览":
+    if page == "总览":
         render_overview(df)
         st.divider()
         render_quality_gate(df)
-    elif page == "数据可信度":
+    elif page == "数据质量":
         render_quality_gate(df)
-    elif page == "生命周期代理":
+    elif page == "玩家分层":
         render_lifecycle(df)
-    elif page == "玩家声音洞察":
+    elif page == "玩家反馈":
         render_voice(df)
-    elif page == "触达与内容生产":
+    elif page == "触达策略":
         render_crm_content(df)
-    elif page == "竞品监控":
+    elif page == "竞品对比":
         render_competitor(df)
     else:
         render_methodology()
