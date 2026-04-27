@@ -138,24 +138,43 @@ def inject_css() -> None:
           background:rgba(33,27,22,.82); border:1px solid {LINE}; border-radius:22px;
           padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(0,0,0,.24);
         }}
-        .primary-shell {{
-          display:grid; grid-template-columns: 1fr auto; gap:16px; align-items:center;
-          background:rgba(33,27,22,.72); border:1px solid {LINE}; border-radius:24px;
-          padding:14px; margin:18px 0 14px; box-shadow:0 12px 34px rgba(0,0,0,.24);
+        .app-shell {{
+          display:grid; grid-template-columns: 220px minmax(0,1fr); gap:26px; align-items:start; margin-top:18px;
         }}
+        .app-nav {{
+          position: sticky; top: 18px;
+          background:rgba(24,19,15,.82); border:1px solid {LINE}; border-radius:22px;
+          padding:12px; box-shadow:0 18px 45px rgba(0,0,0,.28);
+        }}
+        .app-nav-title {{ color:{MUTED}; font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; padding:8px 10px 12px; }}
+        .nav-link {{
+          display:block; text-decoration:none !important; color:{MUTED} !important;
+          padding:13px 12px; border-radius:14px; margin:2px 0;
+          font-weight:800; font-size:14px; border:1px solid transparent;
+        }}
+        .nav-link:hover {{ background:#241D17; color:{INK} !important; }}
+        .nav-link.active {{ background:#F3E9D8; color:#17110D !important; border-color:#F3E9D8; }}
+        .nav-sub {{ color:{MUTED}; font-size:12px; padding:2px 12px 10px; line-height:1.5; }}
+        .workspace-main {{ min-width:0; }}
+        .page-hero {{
+          background:linear-gradient(135deg,#211A15,#120F0C); border:1px solid {LINE}; border-radius:28px;
+          padding:30px 34px; margin-bottom:20px; box-shadow:0 22px 60px rgba(0,0,0,.30);
+        }}
+        .page-hero h1 {{ font-family:"Noto Serif SC", serif; font-size:38px; line-height:1.12; margin:6px 0 10px; color:{INK}; }}
+        .page-hero p {{ color:{MUTED}; line-height:1.75; max-width:820px; margin:0; }}
+        .page-tools {{ display:flex; justify-content:space-between; gap:16px; align-items:center; margin-bottom:18px; }}
         .data-chip {{
-          border:1px solid {LINE}; border-radius:18px; padding:12px 14px; min-width:260px;
+          border:1px solid {LINE}; border-radius:16px; padding:11px 13px;
           background:#17120E; color:{MUTED}; font-size:12px; line-height:1.55;
         }}
         .data-chip b {{ color:{INK}; font-size:13px; }}
-        .subnav {{ margin: 0 0 24px; padding: 0 4px; }}
-        .page-frame {{ margin-top: 8px; }}
-        div[role="radiogroup"] {{ gap:8px; }}
-        div[role="radiogroup"] label {{
-          background:#211B16; border:1px solid {LINE}; border-radius:999px; padding:8px 14px;
-          min-height:38px; color:{MUTED}; font-weight:800;
+        .subnav-links {{ display:flex; gap:10px; margin:-8px 0 22px; }}
+        .subnav-link {{
+          text-decoration:none !important; color:{MUTED} !important; font-weight:800; font-size:13px;
+          border-bottom:2px solid transparent; padding:8px 2px;
         }}
-        div[role="radiogroup"] label:has(input:checked) {{ background:#120F0C; color:#F8EFE1; border-color:{COCOA}; }}
+        .subnav-link.active {{ color:{INK} !important; border-bottom-color:{CLAY}; }}
+        .page-frame {{ margin-top: 0; }}
         .section {{ margin:12px 0 20px; }}
         .section-kicker {{ color:{CLAY}; text-transform:uppercase; letter-spacing:.13em; font-size:11px; font-weight:900; }}
         .section-title {{ font-family:"Noto Serif SC", serif; font-size:30px; margin:4px 0 6px; }}
@@ -284,31 +303,90 @@ def topbar() -> None:
         """
         <div class="topbar">
           <div class="brandmark">Game<span>Pulse</span></div>
-          <div class="top-meta">真实评论 · 运营判断 · 竞品对比</div>
+          <div class="top-meta">游戏运营洞察平台</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def hero(df: pd.DataFrame | None) -> None:
-    loaded = df is not None and len(df) > 0
-    rows = len(df) if loaded else 0
-    games = df["game_name"].nunique() if loaded and "game_name" in df.columns else 0
+def route_url(primary: str, sub: str | None = None) -> str:
+    if sub is None:
+        sub = next(iter(SUB_PAGES[primary].keys()))
+    return f"?section={primary}&page={sub}"
+
+
+def get_route() -> tuple[str, str]:
+    params = st.query_params
+    primary = params.get("section", "workspace")
+    if isinstance(primary, list):
+        primary = primary[0]
+    if primary not in PRIMARY_PAGES:
+        primary = "workspace"
+    sub = params.get("page", next(iter(SUB_PAGES[primary].keys())))
+    if isinstance(sub, list):
+        sub = sub[0]
+    if sub not in SUB_PAGES[primary]:
+        sub = next(iter(SUB_PAGES[primary].keys()))
+    return primary, sub
+
+
+def data_status_chip(df: pd.DataFrame | None) -> str:
+    if df is None or len(df) == 0:
+        return "<div class='data-chip'><b>未加载数据</b><br>去数据中心接入数据</div>"
+    games = df["game_name"].nunique() if "game_name" in df.columns else 1
+    return f"<div class='data-chip'><b>{len(df):,} 条记录 · {games} 款游戏</b><br>{st.session_state.active_source or '当前数据集'}</div>"
+
+
+def app_nav(primary: str) -> str:
+    links = []
+    descriptions = {
+        "workspace": "结论与优先级",
+        "data": "接入与体检",
+        "insight": "反馈与分层",
+        "strategy": "触达与内容",
+        "competition": "竞品横向比较",
+        "method": "数据口径",
+    }
+    for key, label in PRIMARY_PAGES.items():
+        active = " active" if key == primary else ""
+        links.append(f"<a class='nav-link{active}' href='{route_url(key)}'>{label}</a><div class='nav-sub'>{descriptions[key]}</div>")
+    return "<aside class='app-nav'><div class='app-nav-title'>Navigation</div>" + "".join(links) + "</aside>"
+
+
+def subnav(primary: str, sub: str) -> str:
+    options = SUB_PAGES[primary]
+    if len(options) <= 1:
+        return ""
+    links = []
+    for key, label in options.items():
+        active = " active" if key == sub else ""
+        links.append(f"<a class='subnav-link{active}' href='{route_url(primary, key)}'>{label}</a>")
+    return "<div class='subnav-links'>" + "".join(links) + "</div>"
+
+
+def page_header(primary: str, sub: str, df: pd.DataFrame | None) -> None:
+    titles = {
+        "workspace": ("Operations Brief", "今天最该处理什么", "把核心指标、风险和建议放在一页，适合负责人快速扫一遍。"),
+        "data": ("Data Center", "数据中心", "数据接入和质量判断放在这里，分析页面不再混入采集控件。"),
+        "insight": ("Player Insight", "玩家洞察", "理解玩家在说什么、哪些人群需要优先关注。"),
+        "strategy": ("Campaign Strategy", "运营策略", "把洞察转成触达目标、内容方向和参考文案。"),
+        "competition": ("Market View", "竞品研究", "把多款游戏放在同一口径下比较口碑与高频话题。"),
+        "method": ("Method", "口径说明", "说明哪些结论有数据支持，哪些必须依赖内部经营数据。"),
+    }
+    kicker, title, copy = titles[primary]
     st.markdown(
         f"""
-        <div class="hero">
-          <div class="hero-main">
-            <div class="eyebrow">Operations Brief</div>
-            <h1 class="hero-title">把玩家反馈变成运营动作</h1>
-            <div class="hero-copy">从 Steam 公开评论出发，整理玩家痛点、分层风险、触达建议和竞品变化。页面只展示数据能支撑的判断，不把公开评论包装成真实收入或留存模型。</div>
-          </div>
-          <div class="hero-side">
-            <div class="eyebrow">Current Dataset</div>
-            <div class="status-big">{rows:,}</div>
-            <div class="status-note">条记录 · {games} 款游戏<br>{'数据已加载，可以进入分析。' if loaded else '还没有加载数据。先从下方选择采集、文件或上传。'}</div>
-          </div>
+        <div class="page-tools">
+          <div></div>
+          {data_status_chip(df)}
         </div>
+        <div class="page-hero">
+          <div class="eyebrow">{kicker}</div>
+          <h1>{title}</h1>
+          <p>{copy}</p>
+        </div>
+        {subnav(primary, sub)}
         """,
         unsafe_allow_html=True,
     )
@@ -386,48 +464,6 @@ def data_command() -> None:
                 st.session_state.active_source = None
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-def data_status_chip(df: pd.DataFrame | None) -> str:
-    if df is None or len(df) == 0:
-        return "<div class='data-chip'><b>未加载数据</b><br>进入“数据中心”采集或加载 CSV。</div>"
-    games = df["game_name"].nunique() if "game_name" in df.columns else 1
-    return f"<div class='data-chip'><b>{len(df):,} 条记录 · {games} 款游戏</b><br>{st.session_state.active_source or '当前数据集'}</div>"
-
-
-def nav(df: pd.DataFrame | None) -> tuple[str, str]:
-    st.markdown("<div class='primary-shell'>", unsafe_allow_html=True)
-    left, right = st.columns([1, .28])
-    with left:
-        primary = st.radio(
-            "一级导航",
-            list(PRIMARY_PAGES.keys()),
-            format_func=lambda k: PRIMARY_PAGES[k],
-            horizontal=True,
-            label_visibility="collapsed",
-            key="primary_nav",
-        )
-    with right:
-        st.markdown(data_status_chip(df), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    sub_options = SUB_PAGES[primary]
-    if len(sub_options) == 1:
-        sub = next(iter(sub_options.keys()))
-    else:
-        st.markdown("<div class='subnav'>", unsafe_allow_html=True)
-        sub = st.radio(
-            "二级导航",
-            list(sub_options.keys()),
-            format_func=lambda k: sub_options[k],
-            horizontal=True,
-            label_visibility="collapsed",
-            key=f"sub_nav_{primary}",
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-    st.session_state.primary_page = primary
-    st.session_state.sub_page = sub
-    return primary, sub
 
 
 def data_center(df: pd.DataFrame | None) -> None:
@@ -657,17 +693,17 @@ def main() -> None:
     inject_css()
     topbar()
     df = normalize_loaded_df(st.session_state.active_df) if st.session_state.active_df is not None else None
-    hero(df)
-    primary, page = nav(df)
+    primary, page = get_route()
 
-    st.markdown("<div class='page-frame'>", unsafe_allow_html=True)
+    st.markdown("<div class='app-shell'>", unsafe_allow_html=True)
+    st.markdown(app_nav(primary), unsafe_allow_html=True)
+    st.markdown("<main class='workspace-main'>", unsafe_allow_html=True)
+    page_header(primary, page, df)
+
     if primary == "data" and page == "source":
         data_center(df)
     elif primary == "data" and page == "quality":
-        if df is None:
-            empty_state()
-        else:
-            quality(df)
+        quality(df) if df is not None else empty_state()
     elif df is None:
         empty_state()
     elif page == "board":
@@ -682,7 +718,8 @@ def main() -> None:
         competitors(df)
     elif page == "method":
         method()
-    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("</main></div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
