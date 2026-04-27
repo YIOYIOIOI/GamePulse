@@ -1,21 +1,26 @@
 import { useState } from 'react';
-import { clearLlmMemory, DEFAULT_LLM_SETTINGS, loadLlmMemory, loadLlmSettings, maskApiKey, saveLlmSettings, type LlmSettings } from '../lib/llmClient';
-import { KeyRound, Trash2, Database } from 'lucide-react';
+import { clearLlmMemory, DEFAULT_LLM_SETTINGS, fetchModelList, loadLlmMemory, loadLlmSettings, maskApiKey, saveLlmSettings, type LlmSettings, type ModelOption } from '../lib/llmClient';
+import { KeyRound, Trash2, Database, RefreshCw } from 'lucide-react';
 
 export function ModelSettings() {
   const [settings, setSettings] = useState<LlmSettings>(() => loadLlmSettings());
   const [savedHint, setSavedHint] = useState('');
+  const [modelStatus, setModelStatus] = useState('');
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [models, setModels] = useState<ModelOption[]>([]);
   const [memoryCount, setMemoryCount] = useState(() => loadLlmMemory().length);
 
   const persist = () => {
     saveLlmSettings(settings);
-    setSavedHint(`已保存到本机浏览器 localStorage：${maskApiKey(settings.apiKey)}`);
+    setSavedHint(`已保存到本机浏览器：${maskApiKey(settings.apiKey)}`);
     window.setTimeout(() => setSavedHint(''), 2600);
   };
 
   const reset = () => {
     setSettings(DEFAULT_LLM_SETTINGS);
     saveLlmSettings(DEFAULT_LLM_SETTINGS);
+    setModels([]);
+    setModelStatus('已恢复默认配置。');
   };
 
   const clearMemory = () => {
@@ -23,11 +28,25 @@ export function ModelSettings() {
     setMemoryCount(0);
   };
 
+  const loadModels = async () => {
+    setIsLoadingModels(true);
+    setModelStatus('正在获取可用模型...');
+    try {
+      const rows = await fetchModelList(settings);
+      setModels(rows);
+      setModelStatus(rows.length ? `已获取 ${rows.length} 个模型。` : '服务返回为空，可手动填写模型名。');
+    } catch (err) {
+      setModelStatus(err instanceof Error ? err.message : '模型列表获取失败。');
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
   return (
     <div className="py-12 px-8">
       <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">模型设置</h1>
-        <p className="text-zinc-500 dark:text-zinc-300">配置真实大模型接口，用于主题重分类和触达策略生成。</p>
+        <p className="text-zinc-500 dark:text-zinc-300">配置 AI 增强能力，用于主题细分和触达策略生成。</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -35,8 +54,8 @@ export function ModelSettings() {
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 rounded-lg bg-amber-50 text-amber-700"><KeyRound className="w-5 h-5" /></div>
             <div>
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">OpenAI 兼容接口</h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">Key 只保存在当前浏览器本地，不上传到 GamePulse Python 服务端。</p>
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">模型服务</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">访问密钥只保存在当前浏览器本地，不写入项目后端。</p>
             </div>
           </div>
 
@@ -48,11 +67,11 @@ export function ModelSettings() {
                 onChange={e => setSettings(prev => ({ ...prev, enabled: e.target.checked }))}
                 className="w-4 h-4 accent-zinc-900 cursor-pointer"
               />
-              启用真实大模型增强
+              启用 AI 增强
             </label>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 mb-1.5">Base URL</label>
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 mb-1.5">服务地址</label>
               <input
                 className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-amber-500"
                 value={settings.baseUrl}
@@ -61,7 +80,7 @@ export function ModelSettings() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 mb-1.5">API Key</label>
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 mb-1.5">访问密钥</label>
               <input
                 type="password"
                 className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-amber-500"
@@ -72,13 +91,42 @@ export function ModelSettings() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 mb-1.5">模型名称</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300">模型名称</label>
+                <button
+                  onClick={loadModels}
+                  disabled={isLoadingModels}
+                  className="inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                  {isLoadingModels ? '获取中' : '获取模型列表'}
+                </button>
+              </div>
               <input
                 className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-amber-500"
                 value={settings.model}
                 onChange={e => setSettings(prev => ({ ...prev, model: e.target.value }))}
                 placeholder="gpt-4o-mini / deepseek-chat / qwen-plus"
+                list="gamepulse-model-options"
               />
+              <datalist id="gamepulse-model-options">
+                {models.map(model => <option key={model.id} value={model.id} />)}
+              </datalist>
+              {models.length > 0 && (
+                <div className="mt-3 max-h-44 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-700/60">
+                  {models.slice(0, 50).map(model => (
+                    <button
+                      key={model.id}
+                      onClick={() => setSettings(prev => ({ ...prev, model: model.id }))}
+                      className="w-full px-3 py-2 text-left text-xs hover:bg-amber-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center justify-between gap-3"
+                    >
+                      <span className="truncate text-zinc-800 dark:text-zinc-100">{model.id}</span>
+                      {model.owned_by && <span className="text-zinc-400 shrink-0">{model.owned_by}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {modelStatus && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-300">{modelStatus}</p>}
             </div>
           </div>
 
@@ -95,7 +143,7 @@ export function ModelSettings() {
             <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">本地记忆缓存</h2>
           </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-300 leading-relaxed mb-4">
-            大模型返回的主题重分类和策略结果会缓存在本机 localStorage，用于相同数据重复分析时复用，减少请求和等待。
+            AI 增强返回的主题细分和策略结果会缓存在本机浏览器，用于相同数据重复分析时复用，减少等待。
           </p>
           <div className="text-2xl font-mono text-zinc-900 dark:text-zinc-100 mb-4">{memoryCount}</div>
           <button onClick={clearMemory} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">

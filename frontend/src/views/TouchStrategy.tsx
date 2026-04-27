@@ -90,11 +90,11 @@ export function TouchStrategy() {
   const runLlmStrategy = async () => {
     const settings = loadLlmSettings();
     if (!settings.enabled || !settings.apiKey) {
-      setLlmStatus('请先在「模型设置」里启用并保存本地 API Key。');
+      setLlmStatus('请先在「模型设置」里启用并保存访问密钥。');
       return;
     }
     setIsGenerating(true);
-    setLlmStatus('正在调用真实大模型生成触达策略...');
+    setLlmStatus('正在使用 AI 增强生成触达策略...');
     try {
       const payload = (strategies as any[]).map(s => ({
         group: s.group,
@@ -108,9 +108,9 @@ export function TouchStrategy() {
       const mapped: Record<string, any> = {};
       (result.strategies || []).forEach((item: any) => { if (item.group) mapped[item.group] = item; });
       setLlmStrategies(mapped);
-      setLlmStatus(fromCache ? '已使用本地缓存生成策略。' : '已通过真实大模型 API 生成策略。');
+      setLlmStatus(fromCache ? '已使用本地缓存生成策略。' : '已通过 AI 增强生成策略。');
     } catch (err) {
-      setLlmStatus(err instanceof Error ? err.message : '大模型策略生成失败。');
+      setLlmStatus(err instanceof Error ? err.message : 'AI 策略生成失败。');
     } finally {
       setIsGenerating(false);
     }
@@ -130,7 +130,7 @@ export function TouchStrategy() {
               disabled={isGenerating}
               className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
             >
-              {isGenerating ? '生成中...' : '用真实大模型生成策略'}
+              {isGenerating ? '生成中...' : '用 AI 增强生成策略'}
             </button>
             {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
           </div>

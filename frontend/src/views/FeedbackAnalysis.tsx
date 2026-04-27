@@ -48,19 +48,19 @@ export function FeedbackAnalysis() {
   const runLlmTopicClassification = async () => {
     const settings = loadLlmSettings();
     if (!settings.enabled || !settings.apiKey) {
-      setLlmStatus('请先在「模型设置」里启用并保存本地 API Key。');
+      setLlmStatus('请先在「模型设置」里启用并保存访问密钥。');
       return;
     }
     setIsClassifying(true);
-    setLlmStatus('正在调用大模型进行主题重分类...');
+    setLlmStatus('正在使用 AI 增强进行主题细分...');
     try {
       const { result, fromCache } = await classifyTopicsWithLlm(data);
       const updates = new Map((result.topics || []).map(item => [item.index, item.topic]));
-      const next = data.map((row, index) => updates.has(index) ? { ...row, topic_description: updates.get(index), topic_source: fromCache ? '本地大模型缓存' : '真实大模型 API' } : row);
-      replaceData(next, fromCache ? 'LLM 主题缓存' : 'LLM 主题重分类');
-      setLlmStatus(fromCache ? '已使用本地缓存完成主题重分类。' : '已通过真实大模型 API 完成主题重分类。');
+      const next = data.map((row, index) => updates.has(index) ? { ...row, topic_description: updates.get(index), topic_source: fromCache ? '本地 AI 缓存' : 'AI 增强' } : row);
+      replaceData(next, fromCache ? 'AI 主题缓存' : 'AI 主题细分');
+      setLlmStatus(fromCache ? '已使用本地缓存完成主题细分。' : '已通过 AI 增强完成主题细分。');
     } catch (err) {
-      setLlmStatus(err instanceof Error ? err.message : '大模型主题重分类失败。');
+      setLlmStatus(err instanceof Error ? err.message : 'AI 主题细分失败。');
     } finally {
       setIsClassifying(false);
     }
@@ -81,7 +81,7 @@ export function FeedbackAnalysis() {
             disabled={isClassifying}
             className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
           >
-            {isClassifying ? '重分类中...' : '用真实大模型重分类主题'}
+            {isClassifying ? '细分中...' : '用 AI 增强细分主题'}
           </button>
           {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
         </div>

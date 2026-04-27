@@ -7,6 +7,11 @@ export type LlmSettings = {
   model: string;
 };
 
+export type ModelOption = {
+  id: string;
+  owned_by?: string;
+};
+
 const SETTINGS_KEY = 'gamepulse.localLlm.settings.v1';
 const MEMORY_KEY = 'gamepulse.localLlm.memory.v1';
 
@@ -77,12 +82,38 @@ export async function hashText(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function callOpenAICompatible(settings: LlmSettings, messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>) {
+function requireModelSettings(settings: LlmSettings) {
   if (!settings.enabled || !settings.baseUrl || !settings.apiKey || !settings.model) {
-    throw new Error('请先在本地配置大模型 API。');
+    throw new Error('请先在本地配置模型服务。');
   }
-  const base = settings.baseUrl.replace(/\/$/, '');
-  const res = await fetch(`${base}/chat/completions`, {
+}
+
+function apiBase(settings: LlmSettings) {
+  return settings.baseUrl.replace(/\/$/, '');
+}
+
+export async function fetchModelList(settings: LlmSettings): Promise<ModelOption[]> {
+  if (!settings.baseUrl || !settings.apiKey) {
+    throw new Error('请先填写服务地址和访问密钥。');
+  }
+  const res = await fetch(`${apiBase(settings)}/models`, {
+    headers: { Authorization: `Bearer ${settings.apiKey}` },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`模型列表获取失败：HTTP ${res.status}${text ? ` - ${text.slice(0, 160)}` : ''}`);
+  }
+  const payload = await res.json();
+  const rows = Array.isArray(payload.data) ? payload.data : Array.isArray(payload.models) ? payload.models : [];
+  return rows
+    .map((item: any) => ({ id: String(item.id || item.name || ''), owned_by: item.owned_by }))
+    .filter((item: ModelOption) => item.id)
+    .sort((a: ModelOption, b: ModelOption) => a.id.localeCompare(b.id));
+}
+
+async function callOpenAICompatible(settings: LlmSettings, messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>) {
+  requireModelSettings(settings);
+  const res = await fetch(`${apiBase(settings)}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -97,11 +128,11 @@ async function callOpenAICompatible(settings: LlmSettings, messages: Array<{ rol
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`大模型调用失败：HTTP ${res.status}${text ? ` - ${text.slice(0, 200)}` : ''}`);
+    throw new Error(`模型服务调用失败：HTTP ${res.status}${text ? ` - ${text.slice(0, 200)}` : ''}`);
   }
   const payload = await res.json();
   const content = payload.choices?.[0]?.message?.content;
-  if (!content) throw new Error('大模型没有返回内容。');
+  if (!content) throw new Error('模型服务没有返回内容。');
   return JSON.parse(content);
 }
 
