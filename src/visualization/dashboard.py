@@ -21,6 +21,7 @@ from src.analysis.product_metrics import (  # noqa: E402
 from src.data_collection.steam_light_collector import (  # noqa: E402
     safe_fetch_steam_reviews,
     save_collected_reviews,
+    search_steam_apps,
 )
 
 INK = "#F2EDE4"
@@ -248,6 +249,8 @@ def init_state() -> None:
     st.session_state.setdefault("active_source", None)
     st.session_state.setdefault("primary_page", "workspace")
     st.session_state.setdefault("sub_page", "board")
+    st.session_state.setdefault("steam_search_results", [])
+    st.session_state.setdefault("selected_steam_app", None)
 
 
 def plot_layout(fig):
@@ -438,17 +441,46 @@ def data_command() -> None:
     with c2:
         append = st.checkbox("追加到当前数据集", value=True, help="做竞品对比时保持开启。")
     if source == "Steam 采集":
-        presets = {"DOTA 2": 570, "Elden Ring": 1245620, "Baldur's Gate 3": 1086940, "Cyberpunk 2077": 1091500, "自定义": 0}
-        with c3:
-            preset = st.selectbox("游戏", list(presets.keys()))
-        app_id = presets[preset]
-        game_name = preset
-        if preset == "自定义":
-            cc1, cc2 = st.columns(2)
-            with cc1:
-                app_id = st.number_input("Steam App ID", min_value=1, value=570, step=1)
-            with cc2:
-                game_name = st.text_input("游戏名称", value="Custom Steam Game")
+        st.markdown("<div class='note'>可以直接搜索游戏名称；如果搜索不到，也可以手动输入 Steam App ID。</div>", unsafe_allow_html=True)
+        search_cols = st.columns([2.2, .8, 1.2])
+        with search_cols[0]:
+            query = st.text_input("搜索游戏名称", value="", placeholder="例如：Dota 2 / Elden Ring / Cyberpunk 2077")
+        with search_cols[1]:
+            st.write("")
+            if st.button("搜索游戏", type="primary", use_container_width=True):
+                results, status = search_steam_apps(query, limit=12)
+                st.session_state.steam_search_results = results
+                st.session_state.selected_steam_app = results[0] if results else None
+                if status.get("ok"):
+                    st.success(status.get("message"))
+                else:
+                    st.error(status.get("message", "搜索失败"))
+                    if status.get("error_detail"):
+                        st.caption(status["error_detail"])
+        with search_cols[2]:
+            presets = {"DOTA 2": 570, "Elden Ring": 1245620, "Baldur's Gate 3": 1086940, "Cyberpunk 2077": 1091500}
+            preset = st.selectbox("快速选择", ["不使用预设"] + list(presets.keys()))
+            if preset != "不使用预设":
+                st.session_state.selected_steam_app = {"app_id": presets[preset], "name": preset}
+
+        results = st.session_state.get("steam_search_results", [])
+        if results:
+            def fmt_app(item):
+                price = item.get("price") or ""
+                score = item.get("metacritic_score")
+                suffix = f" · {price}" if price else ""
+                suffix += f" · MC {score}" if score else ""
+                return f"{item['name']} · AppID {item['app_id']}{suffix}"
+            selected = st.selectbox("搜索结果", results, format_func=fmt_app)
+            st.session_state.selected_steam_app = selected
+
+        selected_app = st.session_state.get("selected_steam_app")
+        manual = selected_app is None
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            app_id = st.number_input("Steam App ID", min_value=1, value=int(selected_app["app_id"]) if selected_app else 570, step=1)
+        with cc2:
+            game_name = st.text_input("游戏名称", value=str(selected_app["name"]) if selected_app else "Custom Steam Game")
         cc1, cc2, cc3, cc4 = st.columns([1, 1, 1, .8])
         with cc1:
             max_reviews = st.slider("评论数", 100, 5000, 1000, 100)

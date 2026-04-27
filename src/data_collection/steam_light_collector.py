@@ -15,6 +15,59 @@ import pandas as pd
 import requests
 
 
+
+def search_steam_apps(query: str, limit: int = 10, country: str = "US", language: str = "english") -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    """Search Steam Store apps by game name.
+
+    Returns a list of candidate apps with stable fields:
+    app_id, name, price, tiny_image, metacritic_score.
+    """
+    status: Dict[str, object] = {"ok": False, "query": query, "message": "", "rows": 0}
+    query = (query or "").strip()
+    if not query:
+        status["message"] = "请输入游戏名称。"
+        return [], status
+
+    url = "https://store.steampowered.com/api/storesearch/"
+    params = {
+        "term": query,
+        "l": language,
+        "cc": country,
+    }
+    try:
+        response = requests.get(url, params=params, timeout=20)
+        response.raise_for_status()
+        payload = response.json()
+    except requests.RequestException as exc:
+        status["message"] = f"Steam 搜索请求失败：{exc.__class__.__name__}"
+        status["error_detail"] = str(exc)
+        return [], status
+    except ValueError as exc:
+        status["message"] = "Steam 搜索返回内容无法解析。"
+        status["error_detail"] = str(exc)
+        return [], status
+
+    items = payload.get("items", []) or []
+    results: List[Dict[str, object]] = []
+    for item in items[:limit]:
+        app_id = item.get("id")
+        name = item.get("name")
+        if not app_id or not name:
+            continue
+        results.append({
+            "app_id": int(app_id),
+            "name": str(name),
+            "price": item.get("price", {}).get("final_formatted") if isinstance(item.get("price"), dict) else item.get("price"),
+            "tiny_image": item.get("tiny_image", ""),
+            "metacritic_score": item.get("metacritic", {}).get("score") if isinstance(item.get("metacritic"), dict) else None,
+        })
+
+    status["ok"] = True
+    status["rows"] = len(results)
+    status["message"] = f"找到 {len(results)} 个候选游戏。" if results else "没有找到匹配游戏，请换一个关键词。"
+    return results, status
+
+
 def fetch_steam_reviews(
     app_id: int,
     game_name: str,
