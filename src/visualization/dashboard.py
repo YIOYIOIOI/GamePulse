@@ -265,6 +265,11 @@ def render_methodology() -> None:
 
 
 def render_collection_panel() -> pd.DataFrame | None:
+    if "active_df" not in st.session_state:
+        st.session_state.active_df = None
+    if "active_source" not in st.session_state:
+        st.session_state.active_source = None
+
     st.sidebar.markdown("---")
     st.sidebar.subheader("Steam 真实数据采集")
     presets = {
@@ -296,9 +301,11 @@ def render_collection_panel() -> pd.DataFrame | None:
                 st.error("没有采集到有效评论。请检查 App ID、网络或 Steam 接口状态。")
                 return None
             out = save_collected_reviews(df_new, game_name)
+            st.session_state.active_df = df_new
+            st.session_state.active_source = f"Steam采集：{game_name} · {out.name}"
             st.sidebar.success(f"采集完成：{len(df_new):,} 条，已保存 {out.name}")
             return df_new
-    return None
+    return st.session_state.active_df
 
 
 def main() -> None:
@@ -317,17 +324,28 @@ def main() -> None:
             file_choice = selected
     uploaded = st.sidebar.file_uploader("或上传 CSV", type=["csv"])
 
-    if collected_df is not None:
-        df = collected_df
-    elif uploaded is not None:
+    if uploaded is not None:
         df = load_data(uploaded)
+        st.session_state.active_df = df
+        st.session_state.active_source = f"上传文件：{getattr(uploaded, 'name', 'uploaded.csv')}"
     elif file_choice:
         df = load_data(file_choice)
+        st.session_state.active_df = df
+        st.session_state.active_source = f"本地文件：{Path(file_choice).name}"
+    elif collected_df is not None:
+        df = collected_df
     else:
         st.info("请在侧边栏采集 Steam 评论、选择已有分析结果或上传 CSV。")
         st.stop()
 
+    if st.sidebar.button("清空当前数据"):
+        st.session_state.active_df = None
+        st.session_state.active_source = None
+        st.rerun()
+
     st.sidebar.success(f"已加载 {len(df):,} 条记录")
+    if st.session_state.active_source:
+        st.sidebar.caption(st.session_state.active_source)
     page = st.sidebar.radio(
         "产品模块",
         [
