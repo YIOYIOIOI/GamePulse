@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, Tooltip as RTooltip, BarChart, Bar, XAxis, YAxis, 
 import { useState } from 'react';
 import clsx from 'clsx';
 import { normalizeTopicLabel } from '../lib/dataProcessor';
+import { classifyTopicsWithLlm, loadLlmSettings } from '../lib/llmClient';
 
 const FILTER_LABELS = {
   all: '全部',
@@ -11,8 +12,10 @@ const FILTER_LABELS = {
 } as const;
 
 export function FeedbackAnalysis() {
-  const { data } = useDataStore();
+  const { data, replaceData } = useDataStore();
   const [filterMode, setFilterMode] = useState<'all' | 'negative' | 'positive'>('all');
+  const [llmStatus, setLlmStatus] = useState('');
+  const [isClassifying, setIsClassifying] = useState(false);
 
   const filteredData = data.filter(d => filterMode === 'all' ? true : d.sentiment === filterMode);
 
@@ -42,6 +45,27 @@ export function FeedbackAnalysis() {
     .sort((a, b) => (b.timestamp_created?.getTime() || 0) - (a.timestamp_created?.getTime() || 0))
     .slice(0, 10);
 
+  const runLlmTopicClassification = async () => {
+    const settings = loadLlmSettings();
+    if (!settings.enabled || !settings.apiKey) {
+      setLlmStatus('请先在「模型设置」里启用并保存本地 API Key。');
+      return;
+    }
+    setIsClassifying(true);
+    setLlmStatus('正在调用大模型进行主题重分类...');
+    try {
+      const { result, fromCache } = await classifyTopicsWithLlm(data);
+      const updates = new Map((result.topics || []).map(item => [item.index, item.topic]));
+      const next = data.map((row, index) => updates.has(index) ? { ...row, topic_description: updates.get(index), topic_source: fromCache ? '本地大模型缓存' : '真实大模型 API' } : row);
+      replaceData(next, fromCache ? 'LLM 主题缓存' : 'LLM 主题重分类');
+      setLlmStatus(fromCache ? '已使用本地缓存完成主题重分类。' : '已通过真实大模型 API 完成主题重分类。');
+    } catch (err) {
+      setLlmStatus(err instanceof Error ? err.message : '大模型主题重分类失败。');
+    } finally {
+      setIsClassifying(false);
+    }
+  };
+
   if (data.length === 0 || (!posCount && !negCount)) {
     return <div className="p-8 text-zinc-500 dark:text-zinc-300">数据不足，无法进行反馈分析。</div>;
   }
@@ -51,6 +75,16 @@ export function FeedbackAnalysis() {
       <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">反馈分析</h1>
         <p className="text-zinc-500 dark:text-zinc-300">理解玩家在说什么，并定位主要痛点。</p>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={runLlmTopicClassification}
+            disabled={isClassifying}
+            className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+          >
+            {isClassifying ? '重分类中...' : '用真实大模型重分类主题'}
+          </button>
+          {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

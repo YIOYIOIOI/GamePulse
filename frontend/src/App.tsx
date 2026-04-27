@@ -15,6 +15,7 @@ import { PlayerSegmentation } from './views/PlayerSegmentation';
 import { TouchStrategy } from './views/TouchStrategy';
 import { CompetitorAnalysis } from './views/CompetitorAnalysis';
 import { AnalysisBoundaries } from './views/AnalysisBoundaries';
+import { ModelSettings } from './views/ModelSettings';
 
 function ViewManager() {
   const { status } = useDataStore();
@@ -36,6 +37,8 @@ function ViewManager() {
         return <TouchStrategy />;
       case 'competitor':
         return <CompetitorAnalysis onChangeView={setCurrentView} />;
+      case 'model-settings':
+        return <ModelSettings />;
       case 'info':
         return <AnalysisBoundaries />;
       default:

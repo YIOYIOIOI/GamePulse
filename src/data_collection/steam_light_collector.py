@@ -123,6 +123,7 @@ def fetch_steam_reviews(
     review_type: str = "all",
     delay_seconds: float = 0.6,
     timeout: int = 30,
+    progress_callback=None,
 ) -> pd.DataFrame:
     reviews: List[Dict] = []
     cursor = "*"
@@ -155,6 +156,8 @@ def fetch_steam_reviews(
         if not batch:
             break
         reviews.extend(batch)
+        if progress_callback:
+            progress_callback({"collected": len(reviews), "target": max_reviews, "batch_size": len(batch)})
         next_cursor = payload.get("cursor")
         if not next_cursor or next_cursor == cursor:
             break

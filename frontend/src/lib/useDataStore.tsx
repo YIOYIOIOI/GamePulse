@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-// Data types based on requirements
 export interface Review {
   review_text: string;
   sentiment: 'positive' | 'negative' | 'neutral';
@@ -9,7 +8,6 @@ export interface Review {
   player_type?: string;
   playtime_forever?: number;
   timestamp_created?: Date;
-  // Derived fields
   topic_source?: string;
   value_potential_score?: number;
   churn_risk_proxy?: number;
@@ -28,6 +26,7 @@ interface DataContextType {
   data: Review[];
   status: DatasetStatus;
   appendData: (newData: Review[], sourceName: string) => void;
+  replaceData: (nextData: Review[], sourceName?: string) => void;
   clearData: () => void;
 }
 
@@ -39,9 +38,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const appendData = (newData: Review[], sourceName: string) => {
     setData((prev) => [...prev, ...newData]);
-    if (!sources.includes(sourceName)) {
-      setSources((prev) => [...prev, sourceName]);
-    }
+    setSources((prev) => prev.includes(sourceName) ? prev : [...prev, sourceName]);
+  };
+
+  const replaceData = (nextData: Review[], sourceName?: string) => {
+    setData(nextData);
+    if (sourceName) setSources((prev) => prev.includes(sourceName) ? prev : [...prev, sourceName]);
   };
 
   const clearData = () => {
@@ -54,7 +56,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const gameStats = games.reduce((acc, game) => {
     acc[game] = {
       count: data.filter((r) => r.game_name === game).length,
-      source: 'Mixed', // simplification
+      source: 'Mixed',
     };
     return acc;
   }, {} as Record<string, { count: number; source: string }>);
@@ -68,7 +70,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DataContext.Provider value={{ data, status, appendData, clearData }}>
+    <DataContext.Provider value={{ data, status, appendData, replaceData, clearData }}>
       {children}
     </DataContext.Provider>
   );

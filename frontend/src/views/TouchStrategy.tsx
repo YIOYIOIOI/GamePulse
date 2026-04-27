@@ -1,10 +1,15 @@
 import { useDataStore } from '../lib/useDataStore';
+import { useState } from 'react';
 import { Megaphone, AlertCircle, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import { normalizeTopicLabel } from '../lib/dataProcessor';
+import { generateStrategyWithLlm, loadLlmSettings } from '../lib/llmClient';
 
 export function TouchStrategy() {
   const { data } = useDataStore();
+  const [llmStrategies, setLlmStrategies] = useState<Record<string, any>>({});
+  const [llmStatus, setLlmStatus] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const validData = data.filter(d => d.player_type);
 
@@ -82,12 +87,53 @@ export function TouchStrategy() {
     };
   }).filter(Boolean);
 
+  const runLlmStrategy = async () => {
+    const settings = loadLlmSettings();
+    if (!settings.enabled || !settings.apiKey) {
+      setLlmStatus('请先在「模型设置」里启用并保存本地 API Key。');
+      return;
+    }
+    setIsGenerating(true);
+    setLlmStatus('正在调用真实大模型生成触达策略...');
+    try {
+      const payload = (strategies as any[]).map(s => ({
+        group: s.group,
+        sampleSize: s.sampleSize,
+        negRatio: s.negRatio,
+        avgPlaytime: s.avgPlaytime,
+        topTopic: s.topTopic,
+        samples: data.filter(d => d.player_type === s.group).slice(0, 12).map(d => ({ sentiment: d.sentiment, topic: d.topic_description, text: d.review_text.slice(0, 300) }))
+      }));
+      const { result, fromCache } = await generateStrategyWithLlm(payload);
+      const mapped: Record<string, any> = {};
+      (result.strategies || []).forEach((item: any) => { if (item.group) mapped[item.group] = item; });
+      setLlmStrategies(mapped);
+      setLlmStatus(fromCache ? '已使用本地缓存生成策略。' : '已通过真实大模型 API 生成策略。');
+    } catch (err) {
+      setLlmStatus(err instanceof Error ? err.message : '大模型策略生成失败。');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const resolvedStrategies = (strategies as any[]).map(s => ({ ...s, ...(llmStrategies[s.group] || {}) }));
+
   return (
     <div className="py-12 px-8">
       <div className="mb-10 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">触达策略</h1>
           <p className="text-zinc-500 dark:text-zinc-300">基于玩家分层和主题痛点，生成可复核的 CRM 沟通方案。</p>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={runLlmStrategy}
+              disabled={isGenerating}
+              className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+            >
+              {isGenerating ? '生成中...' : '用真实大模型生成策略'}
+            </button>
+            {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
+          </div>
         </div>
 
         <div className="flex bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2 rounded-lg items-center gap-2 max-w-sm">
@@ -99,7 +145,7 @@ export function TouchStrategy() {
       </div>
 
       <div className="space-y-8">
-        {strategies.map((strategy: any) => (
+        {resolvedStrategies.map((strategy: any) => (
           <div key={strategy.group} className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 rounded-2xl overflow-hidden shadow-sm">
             <div className="border-b border-zinc-100 dark:border-zinc-700/50/50 bg-zinc-50 dark:bg-zinc-800/50 p-6 flex items-center justify-between">
               <div>

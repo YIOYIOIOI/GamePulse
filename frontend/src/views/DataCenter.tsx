@@ -1,24 +1,25 @@
 import React, { useState, useRef } from 'react';
 import { useDataStore } from '../lib/useDataStore';
 import { standardizeData } from '../lib/dataProcessor';
-import { fetchSteamReviews, searchSteamApps, type SteamAppSearchResult } from '../lib/steamApi';
+import { fetchSteamReviewsWithProgress, searchSteamAppsWithProgress, type SteamAppSearchResult } from '../lib/steamApi';
 import Papa from 'papaparse';
-import { Upload, Download, Trash2, CheckCircle2, PlusCircle, FileSpreadsheet } from 'lucide-react';
+import { Upload, Download, Trash2, CheckCircle2, PlusCircle, FileSpreadsheet, Check } from 'lucide-react';
 import clsx from 'clsx';
 
-type OperationProgress = { label: string; value: number } | null;
+type OperationProgress = { label: string; value: number; rows?: number } | null;
+type ToastState = { kind: 'success' | 'error' | 'info'; text: string } | null;
 
 function ProgressBar({ progress }: { progress: OperationProgress }) {
   if (!progress) return null;
   return (
-    <div className="mt-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/70 dark:bg-blue-950/20 px-3 py-2">
+    <div className="mt-3 rounded-2xl border border-orange-200/70 dark:border-orange-900/40 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-zinc-900 px-3 py-2 shadow-sm">
       <div className="flex items-center justify-between text-xs mb-2">
-        <span className="font-medium text-blue-700 dark:text-blue-300">{progress.label}</span>
-        <span className="font-mono text-blue-600 dark:text-blue-300">{Math.round(progress.value)}%</span>
+        <span className="font-medium text-orange-800 dark:text-orange-200">{progress.label}</span>
+        <span className="font-mono text-orange-700 dark:text-orange-300">{Math.round(progress.value)}%</span>
       </div>
-      <div className="h-2 rounded-full bg-blue-100 dark:bg-blue-900/50 overflow-hidden">
+      <div className="h-2 rounded-full bg-orange-100 dark:bg-orange-900/40 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-stone-700 transition-all duration-300 ease-out"
           style={{ width: `${Math.min(100, Math.max(0, progress.value))}%` }}
         />
       </div>
@@ -33,6 +34,8 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
   const [isSearching, setIsSearching] = useState(false);
   const [searchProgress, setSearchProgress] = useState<OperationProgress>(null);
   const [fetchProgress, setFetchProgress] = useState<OperationProgress>(null);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SteamAppSearchResult[]>([]);
   const [steamConfig, setSteamConfig] = useState({
@@ -44,65 +47,66 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
   });
 
 
+  const showToast = (next: ToastState) => {
+    setToast(next);
+    if (next) window.setTimeout(() => setToast(null), 2200);
+  };
+
   const handleGameSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
-    setSearchProgress({ label: '正在连接 Steam 搜索服务...', value: 12 });
-    const timer = window.setInterval(() => {
-      setSearchProgress(prev => prev ? { ...prev, value: Math.min(prev.value + 14, 86) } : prev);
-    }, 350);
+    setSearchProgress({ label: '准备搜索 Steam 商店...', value: 3 });
     try {
-      setSearchProgress({ label: '正在搜索候选游戏...', value: 28 });
-      const results = await searchSteamApps(searchQuery);
-      setSearchProgress({ label: results.length > 0 ? `找到 ${results.length} 个候选游戏` : '没有找到候选游戏', value: 100 });
+      const results = await searchSteamAppsWithProgress(searchQuery, event => {
+        setSearchProgress({ label: event.message || '正在搜索 Steam 商店...', value: event.percent ?? 0, rows: event.rows });
+      });
       setSearchResults(results);
       if (results.length > 0) {
         const first = results[0];
+        setSelectedAppId(first.app_id);
         setSteamConfig(prev => ({ ...prev, gameName: 'Custom', customName: first.name, appId: String(first.app_id) }));
+        showToast({ kind: 'success', text: `已自动选中：${first.name}` });
+      } else {
+        showToast({ kind: 'info', text: '没有找到候选游戏，请换一个关键词。' });
       }
       window.setTimeout(() => setSearchProgress(null), 1200);
     } catch (e) {
       setSearchProgress({ label: '搜索失败，请稍后重试', value: 100 });
-      alert(e instanceof Error ? e.message : 'Steam 游戏搜索失败。');
-      window.setTimeout(() => setSearchProgress(null), 1600);
+      showToast({ kind: 'error', text: e instanceof Error ? e.message : 'Steam 游戏搜索失败。' });
+      window.setTimeout(() => setSearchProgress(null), 1800);
     } finally {
-      window.clearInterval(timer);
       setIsSearching(false);
     }
   };
 
   const selectSearchResult = (app: SteamAppSearchResult) => {
+    setSelectedAppId(app.app_id);
     setSteamConfig(prev => ({ ...prev, gameName: 'Custom', customName: app.name, appId: String(app.app_id) }));
+    showToast({ kind: 'success', text: `已选择：${app.name}（AppID ${app.app_id}）` });
   };
 
   const handleSteamFetch = async () => {
     setIsFetching(true);
-    setFetchProgress({ label: '正在连接 Steam 评论接口...', value: 8 });
-    const timer = window.setInterval(() => {
-      setFetchProgress(prev => {
-        if (!prev) return prev;
-        const step = steamConfig.count >= 2000 ? 4 : steamConfig.count >= 1000 ? 6 : 9;
-        return { ...prev, value: Math.min(prev.value + step, 88) };
-      });
-    }, 500);
+    setFetchProgress({ label: '正在连接 Steam 评论接口...', value: 3 });
     try {
       const finalGameName = steamConfig.gameName === 'Custom' ? (steamConfig.customName || '自定义游戏') : steamConfig.gameName;
-      setFetchProgress({ label: `正在采集《${finalGameName}》评论...`, value: 18 });
-      const rawData = await fetchSteamReviews({ ...steamConfig, gameName: finalGameName });
+      const rawData = await fetchSteamReviewsWithProgress({ ...steamConfig, gameName: finalGameName }, event => {
+        setFetchProgress({ label: event.message || `正在采集《${finalGameName}》评论...`, value: event.percent ?? 0, rows: event.rows });
+      });
       setFetchProgress({ label: `已采集 ${rawData.length.toLocaleString()} 条评论，正在标准化字段...`, value: 92 });
       const standardData = standardizeData(rawData, finalGameName);
       appendData(standardData, `Steam: ${finalGameName}`);
       setFetchProgress({ label: '采集完成，正在进入工作台...', value: 100 });
+      showToast({ kind: 'success', text: `已采集 ${rawData.length.toLocaleString()} 条评论。` });
       window.setTimeout(() => {
         setFetchProgress(null);
         onChangeView('workbench');
       }, 500);
     } catch (e) {
       setFetchProgress({ label: '采集失败，请检查 App ID、网络或评论类型', value: 100 });
-      alert(e instanceof Error ? e.message : 'Steam 数据采集失败。');
+      showToast({ kind: 'error', text: e instanceof Error ? e.message : 'Steam 数据采集失败。' });
       window.setTimeout(() => setFetchProgress(null), 1800);
     } finally {
-      window.clearInterval(timer);
       setIsFetching(false);
     }
   };
@@ -133,14 +137,21 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
 
   const loadLocalDemo = async () => {
     setIsFetching(true);
+    setFetchProgress({ label: '正在加载项目样例...', value: 3 });
     try {
-      // Simulate loading local file by using our steam mock
-      const rawData = await fetchSteamReviews({ gameName: 'Elden Ring', appId: '1245620', count: 500, reviewType: 'all' });
+      const rawData = await fetchSteamReviewsWithProgress({ gameName: 'Elden Ring', appId: '1245620', count: 500, reviewType: 'all' }, event => {
+        setFetchProgress({ label: event.message || '正在加载项目样例...', value: event.percent ?? 0, rows: event.rows });
+      });
       const standardData = standardizeData(rawData, 'Elden Ring');
       appendData(standardData, '本地样例：elden_ring_reviews.csv');
-      onChangeView('workbench');
+      showToast({ kind: 'success', text: '项目样例已加载。' });
+      window.setTimeout(() => {
+        setFetchProgress(null);
+        onChangeView('workbench');
+      }, 500);
     } catch (e) {
-      alert('项目样例加载失败。');
+      showToast({ kind: 'error', text: '项目样例加载失败。' });
+      setFetchProgress(null);
     } finally {
       setIsFetching(false);
     }
@@ -153,13 +164,24 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
         <p className="text-zinc-500 dark:text-zinc-300">采集或导入玩家评论，开始分析。</p>
       </div>
 
+      {toast && (
+        <div className={clsx(
+          "fixed top-5 right-6 z-50 rounded-2xl px-4 py-3 text-sm shadow-xl border backdrop-blur cursor-default",
+          toast.kind === 'success' && "bg-emerald-50/95 border-emerald-200 text-emerald-800",
+          toast.kind === 'error' && "bg-red-50/95 border-red-200 text-red-800",
+          toast.kind === 'info' && "bg-zinc-50/95 border-zinc-200 text-zinc-700"
+        )}>
+          {toast.text}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Steam Source */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50 flex flex-col relative overflow-hidden transition-colors">
-           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-amber-500 to-stone-700"></div>
            <div className="flex items-center gap-3 mb-6">
-             <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+             <div className="p-2.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
                 <Download className="w-5 h-5" />
              </div>
              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Steam 评论采集</h2>
@@ -170,7 +192,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">搜索 Steam 游戏</label>
                <div className="flex gap-2">
                  <input
-                   className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                   className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-colors"
                    value={searchQuery}
                    placeholder="输入游戏名称搜索"
                    onChange={e => setSearchQuery(e.target.value)}
@@ -179,7 +201,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                  <button
                    onClick={handleGameSearch}
                    disabled={isSearching}
-                   className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg text-sm font-semibold disabled:opacity-50"
+                   className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 cursor-pointer transition-all"
                  >
                    {isSearching ? '搜索中...' : '搜索'}
                  </button>
@@ -188,10 +210,10 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                {searchResults.length > 0 && (
                  <div className="mt-3 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-700/60">
                    {searchResults.slice(0, 5).map(app => (
-                     <button key={app.app_id} onClick={() => selectSearchResult(app)} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-700/40 transition-colors">
+                     <button key={app.app_id} onClick={() => selectSearchResult(app)} className={clsx("w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-orange-50 dark:hover:bg-zinc-700/40 transition-colors cursor-pointer", selectedAppId === app.app_id && "bg-orange-50 dark:bg-orange-900/20")}>
                        {app.tiny_image && <img src={app.tiny_image} alt="" className="w-16 h-8 object-cover rounded" />}
                        <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-100">{app.name}</span>
-                       <span className="text-xs font-mono text-zinc-500">{app.app_id}</span>
+                       <span className="text-xs font-mono text-zinc-500">{app.app_id}</span>{selectedAppId === app.app_id && <Check className="w-4 h-4 text-orange-500" />}
                      </button>
                    ))}
                  </div>
@@ -202,7 +224,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                <div className="flex-1">
                  <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">游戏名称</label>
                  <select
-                   className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                   className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-colors"
                    value={steamConfig.gameName}
                    onChange={e => {
                      const val = e.target.value;
@@ -227,7 +249,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                  <div className="flex-1">
                    <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">自定义名称</label>
                    <input
-                     className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                     className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-colors"
                      value={steamConfig.customName || ''}
                      placeholder="输入游戏名称"
                      onChange={e => setSteamConfig({...steamConfig, customName: e.target.value})}
@@ -240,7 +262,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                <div className="w-1/3">
                  <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">App ID</label>
                  <input
-                   className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                   className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors"
                    value={steamConfig.appId}
                    onChange={e => setSteamConfig({...steamConfig, appId: e.target.value})}
                  />
@@ -256,13 +278,13 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                      min="100"
                      max="5000"
                      step="100"
-                     className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                     className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-orange-600"
                      value={steamConfig.count}
                      onChange={e => setSteamConfig({...steamConfig, count: Number(e.target.value)})}
                    />
                    <input
                      type="number"
-                     className="w-20 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-2 py-1 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                     className="w-20 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-2 py-1 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors"
                      value={steamConfig.count}
                      onChange={e => setSteamConfig({...steamConfig, count: Number(e.target.value)})}
                    />
@@ -272,7 +294,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
              <div>
                 <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">评论类型</label>
                 <select
-                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors"
                   value={steamConfig.reviewType}
                   onChange={e => setSteamConfig({...steamConfig, reviewType: e.target.value})}
                 >
@@ -290,7 +312,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
              disabled={isFetching}
              className={clsx(
                "mt-6 w-full py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2",
-               isFetching ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-300 cursor-not-allowed" : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100"
+               isFetching ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-300 cursor-not-allowed" : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 cursor-pointer"
              )}
            >
              {isFetching ? '采集中...' : '采集 Steam 数据'}
@@ -318,7 +340,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                />
                <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-6 py-2 border border-zinc-300 dark:border-zinc-700 rounded-full text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-zinc-700 dark:text-zinc-300"
+                  className="px-6 py-2 border border-zinc-300 dark:border-zinc-700 rounded-full text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-zinc-700 dark:text-zinc-300"
                >
                  选择 CSV 文件
                </button>
@@ -337,7 +359,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
              <button
                 onClick={loadLocalDemo}
                 disabled={isFetching}
-                className="ml-auto px-4 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-semibold rounded-lg transition-colors border border-zinc-300 dark:border-zinc-700"
+                className="ml-auto px-4 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer text-zinc-700 dark:text-zinc-300 text-xs font-semibold rounded-lg transition-colors border border-zinc-300 dark:border-zinc-700"
               >
                 加载
              </button>

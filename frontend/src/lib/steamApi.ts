@@ -1,3 +1,5 @@
+import { postProgressStream, type ProgressEvent } from './progressStream';
+
 export interface SteamFetchOptions {
   appId: string;
   gameName: string;
@@ -27,6 +29,13 @@ export async function searchSteamApps(query: string): Promise<SteamAppSearchResu
   return payload.results || [];
 }
 
+export async function searchSteamAppsWithProgress(query: string, onEvent: (event: ProgressEvent) => void): Promise<SteamAppSearchResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const payload = await postProgressStream<ProgressEvent & { results?: SteamAppSearchResult[] }>(`${API_BASE}/api/steam/search/stream`, { q, limit: 12 }, onEvent);
+  return payload.results || [];
+}
+
 export async function fetchSteamReviews(options: SteamFetchOptions) {
   const res = await fetch(`${API_BASE}/api/steam/reviews`, {
     method: 'POST',
@@ -43,5 +52,16 @@ export async function fetchSteamReviews(options: SteamFetchOptions) {
   if (!res.ok || payload.status?.ok === false) {
     throw new Error(payload.status?.message || 'Steam 评论采集失败');
   }
+  return payload.reviews || [];
+}
+
+export async function fetchSteamReviewsWithProgress(options: SteamFetchOptions, onEvent: (event: ProgressEvent) => void) {
+  const payload = await postProgressStream<ProgressEvent & { reviews?: unknown[] }>(`${API_BASE}/api/steam/reviews/stream`, {
+    appId: options.appId,
+    gameName: options.gameName,
+    count: options.count,
+    language: options.language || 'all',
+    reviewType: options.reviewType || 'all',
+  }, onEvent);
   return payload.reviews || [];
 }

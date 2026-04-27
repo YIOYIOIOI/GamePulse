@@ -10,7 +10,8 @@ import {
   Swords,
   Info,
   Moon,
-  Sun
+  Sun,
+  KeyRound
 } from 'lucide-react';
 import clsx from 'clsx';
 import { ReactNode } from 'react';
@@ -33,6 +34,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'segmentation', label: '玩家分层', icon: Users, requiresData: true },
     { id: 'strategy', label: '触达策略', icon: Megaphone, requiresData: true },
     { id: 'competitor', label: '竞品分析', icon: Swords, requiresData: true },
+    { id: 'model-settings', label: '模型设置', icon: KeyRound, requiresData: false },
     { id: 'info', label: '分析边界', icon: Info, requiresData: false },
   ];
 
@@ -97,11 +99,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                <div className="text-2xl font-light text-zinc-900 dark:text-white mb-1 transition-colors">{status.totalRecords.toLocaleString()} <span className="text-xs text-zinc-400">行</span></div>
                <div className="flex items-center gap-2 mt-2">
                  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono transition-colors">
-                    {status.gamesCount} Games
+                    {status.gamesCount} 款游戏
                  </span>
-                 {status.isMerged && (
+                 {status.is已合并 && (
                    <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-mono transition-colors">
-                      Merged
+                      已合并
                    </span>
                  )}
                </div>
