@@ -138,24 +138,30 @@ def inject_css() -> None:
           background:rgba(33,27,22,.82); border:1px solid {LINE}; border-radius:22px;
           padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(0,0,0,.24);
         }}
-        .app-shell {{
-          display:grid; grid-template-columns: 220px minmax(0,1fr); gap:26px; align-items:start; margin-top:18px;
+        .app-shell {{ margin-top:18px; }}
+        .nav-bar {{
+          display:flex; align-items:center; justify-content:space-between; gap:14px;
+          background:rgba(24,19,15,.82); border:1px solid {LINE}; border-radius:18px;
+          padding:8px; margin-bottom:14px; box-shadow:0 14px 38px rgba(0,0,0,.24);
         }}
-        .app-nav {{
-          position: sticky; top: 18px;
-          background:rgba(24,19,15,.82); border:1px solid {LINE}; border-radius:22px;
-          padding:12px; box-shadow:0 18px 45px rgba(0,0,0,.28);
+        .nav-left {{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }}
+        .nav-context {{ color:{MUTED}; font-size:12px; padding-right:6px; white-space:nowrap; }}
+        .nav-item {{
+          border:1px solid transparent; border-radius:11px; padding:8px 10px;
+          color:{MUTED}; font-weight:800; font-size:13px; line-height:1;
         }}
-        .app-nav-title {{ color:{MUTED}; font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; padding:8px 10px 12px; }}
-        .nav-link {{
-          display:block; text-decoration:none !important; color:{MUTED} !important;
-          padding:13px 12px; border-radius:14px; margin:2px 0;
-          font-weight:800; font-size:14px; border:1px solid transparent;
+        .nav-item.active {{ background:#F3E9D8; color:#17110D; border-color:#F3E9D8; }}
+        .subnav-bar {{ display:flex; gap:16px; margin:4px 0 18px; padding-left:4px; }}
+        .subnav-item {{ color:{MUTED}; font-size:13px; font-weight:800; padding:6px 0; border-bottom:2px solid transparent; }}
+        .subnav-item.active {{ color:{INK}; border-bottom-color:{CLAY}; }}
+        .nav-click-row div[data-testid="stButton"] button,
+        .subnav-click-row div[data-testid="stButton"] button {{
+          background:transparent !important; color:{MUTED} !important; border:0 !important;
+          border-radius:11px !important; padding:8px 10px !important; min-height:34px !important;
+          font-size:13px !important; font-weight:800 !important; box-shadow:none !important;
         }}
-        .nav-link:hover {{ background:#241D17; color:{INK} !important; }}
-        .nav-link.active {{ background:#F3E9D8; color:#17110D !important; border-color:#F3E9D8; }}
-        .nav-sub {{ color:{MUTED}; font-size:12px; padding:2px 12px 10px; line-height:1.5; }}
-        .workspace-main {{ min-width:0; }}
+        .nav-click-row div[data-testid="stButton"] button:hover,
+        .subnav-click-row div[data-testid="stButton"] button:hover {{ background:#241D17 !important; color:{INK} !important; }}
         .page-hero {{
           background:linear-gradient(135deg,#211A15,#120F0C); border:1px solid {LINE}; border-radius:28px;
           padding:30px 34px; margin-bottom:20px; box-shadow:0 22px 60px rgba(0,0,0,.30);
@@ -310,25 +316,23 @@ def topbar() -> None:
     )
 
 
-def route_url(primary: str, sub: str | None = None) -> str:
-    if sub is None:
-        sub = next(iter(SUB_PAGES[primary].keys()))
-    return f"?section={primary}&page={sub}"
-
-
-def get_route() -> tuple[str, str]:
-    params = st.query_params
-    primary = params.get("section", "workspace")
-    if isinstance(primary, list):
-        primary = primary[0]
+def current_route() -> tuple[str, str]:
+    primary = st.session_state.get("primary_page", "workspace")
     if primary not in PRIMARY_PAGES:
         primary = "workspace"
-    sub = params.get("page", next(iter(SUB_PAGES[primary].keys())))
-    if isinstance(sub, list):
-        sub = sub[0]
+    sub = st.session_state.get("sub_page", next(iter(SUB_PAGES[primary].keys())))
     if sub not in SUB_PAGES[primary]:
         sub = next(iter(SUB_PAGES[primary].keys()))
     return primary, sub
+
+
+def set_primary(primary: str) -> None:
+    st.session_state.primary_page = primary
+    st.session_state.sub_page = next(iter(SUB_PAGES[primary].keys()))
+
+
+def set_sub(sub: str) -> None:
+    st.session_state.sub_page = sub
 
 
 def data_status_chip(df: pd.DataFrame | None) -> str:
@@ -338,31 +342,33 @@ def data_status_chip(df: pd.DataFrame | None) -> str:
     return f"<div class='data-chip'><b>{len(df):,} 条记录 · {games} 款游戏</b><br>{st.session_state.active_source or '当前数据集'}</div>"
 
 
-def app_nav(primary: str) -> str:
-    links = []
-    descriptions = {
-        "workspace": "结论与优先级",
-        "data": "接入与体检",
-        "insight": "反馈与分层",
-        "strategy": "触达与内容",
-        "competition": "竞品横向比较",
-        "method": "数据口径",
-    }
-    for key, label in PRIMARY_PAGES.items():
-        active = " active" if key == primary else ""
-        links.append(f"<a class='nav-link{active}' href='{route_url(key)}'>{label}</a><div class='nav-sub'>{descriptions[key]}</div>")
-    return "<aside class='app-nav'><div class='app-nav-title'>Navigation</div>" + "".join(links) + "</aside>"
+def product_nav(df: pd.DataFrame | None) -> tuple[str, str]:
+    primary, sub = current_route()
+    st.markdown("<div class='nav-bar'><div class='nav-left'>", unsafe_allow_html=True)
+    cols = st.columns([1,1,1,1,1,1,1.25])
+    keys = list(PRIMARY_PAGES.keys())
+    st.markdown("<div class='nav-click-row'>", unsafe_allow_html=True)
+    for col, key in zip(cols[:6], keys):
+        with col:
+            if st.button(PRIMARY_PAGES[key], key=f"nav_{key}", use_container_width=True):
+                set_primary(key)
+                st.rerun()
+    with cols[6]:
+        st.markdown(data_status_chip(df), unsafe_allow_html=True)
+    st.markdown("</div></div></div>", unsafe_allow_html=True)
 
-
-def subnav(primary: str, sub: str) -> str:
+    primary, sub = current_route()
     options = SUB_PAGES[primary]
-    if len(options) <= 1:
-        return ""
-    links = []
-    for key, label in options.items():
-        active = " active" if key == sub else ""
-        links.append(f"<a class='subnav-link{active}' href='{route_url(primary, key)}'>{label}</a>")
-    return "<div class='subnav-links'>" + "".join(links) + "</div>"
+    if len(options) > 1:
+        st.markdown("<div class='subnav-click-row'>", unsafe_allow_html=True)
+        sub_cols = st.columns([1] * len(options) + [8])
+        for col, (key, label) in zip(sub_cols, options.items()):
+            with col:
+                if st.button(label, key=f"sub_{primary}_{key}", use_container_width=True):
+                    set_sub(key)
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    return current_route()
 
 
 def page_header(primary: str, sub: str, df: pd.DataFrame | None) -> None:
@@ -377,16 +383,11 @@ def page_header(primary: str, sub: str, df: pd.DataFrame | None) -> None:
     kicker, title, copy = titles[primary]
     st.markdown(
         f"""
-        <div class="page-tools">
-          <div></div>
-          {data_status_chip(df)}
-        </div>
         <div class="page-hero">
           <div class="eyebrow">{kicker}</div>
           <h1>{title}</h1>
           <p>{copy}</p>
         </div>
-        {subnav(primary, sub)}
         """,
         unsafe_allow_html=True,
     )
@@ -693,11 +694,9 @@ def main() -> None:
     inject_css()
     topbar()
     df = normalize_loaded_df(st.session_state.active_df) if st.session_state.active_df is not None else None
-    primary, page = get_route()
 
     st.markdown("<div class='app-shell'>", unsafe_allow_html=True)
-    st.markdown(app_nav(primary), unsafe_allow_html=True)
-    st.markdown("<main class='workspace-main'>", unsafe_allow_html=True)
+    primary, page = product_nav(df)
     page_header(primary, page, df)
 
     if primary == "data" and page == "source":
@@ -719,7 +718,7 @@ def main() -> None:
     elif page == "method":
         method()
 
-    st.markdown("</main></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
