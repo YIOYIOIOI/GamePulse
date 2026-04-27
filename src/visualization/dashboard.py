@@ -348,7 +348,11 @@ def render_lifecycle(df: pd.DataFrame) -> None:
 def segment_stats(df: pd.DataFrame, segment: str) -> dict:
     part = df[df["player_type"].astype(str) == str(segment)] if "player_type" in df.columns else df
     neg = (part["sentiment"] == "negative").mean() if "sentiment" in part.columns and len(part) else 0
-    topic = part["topic_description"].value_counts().idxmax() if "topic_description" in part.columns and len(part) else "泛体验反馈"
+    topic = "泛体验反馈"
+    if "topic_description" in part.columns and len(part):
+        topic_counts = part["topic_description"].value_counts()
+        useful_topics = topic_counts.drop(labels=["泛体验反馈/未分类", "待归类主题"], errors="ignore")
+        topic = useful_topics.idxmax() if len(useful_topics) else topic_counts.idxmax()
     avg_play = part["playtime_forever"].mean() if "playtime_forever" in part.columns and len(part) else 0
     return {"n": len(part), "neg": neg, "topic": topic, "avg_play": avg_play}
 
