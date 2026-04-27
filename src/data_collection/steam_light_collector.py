@@ -16,11 +16,46 @@ import requests
 
 
 
-def search_steam_apps(query: str, limit: int = 10, country: str = "US", language: str = "english") -> Tuple[List[Dict[str, object]], Dict[str, object]]:
-    """Search Steam Store apps by game name.
+def _normalize_steam_search_item(item: Dict[str, object]) -> Dict[str, object] | None:
+    app_id = item.get("id")
+    name = item.get("name")
+    if not app_id or not name:
+        return None
+    price = item.get("price")
+    metacritic = item.get("metacritic")
+    return {
+        "app_id": int(app_id),
+        "name": str(name),
+        "price": price.get("final_formatted") if isinstance(price, dict) else price,
+        "tiny_image": item.get("tiny_image", ""),
+        "metacritic_score": metacritic.get("score") if isinstance(metacritic, dict) else None,
+    }
 
-    Returns a list of candidate apps with stable fields:
-    app_id, name, price, tiny_image, metacritic_score.
+
+def _steam_store_search_once(query: str, limit: int, country: str, language: str) -> List[Dict[str, object]]:
+    url = "https://store.steampowered.com/api/storesearch/"
+    params = {"term": query, "l": language, "cc": country}
+    response = requests.get(url, params=params, timeout=20)
+    response.raise_for_status()
+    payload = response.json()
+    results: List[Dict[str, object]] = []
+    for item in (payload.get("items", []) or []):
+        normalized = _normalize_steam_search_item(item)
+        if normalized:
+            results.append(normalized)
+        if len(results) >= limit:
+            break
+    return results
+
+
+def search_steam_apps(query: str, limit: int = 10, country: str = "US", language: str = "english") -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    """Search Steam Store apps by game name with multilingual fallback.
+
+    Steam's store search is locale-sensitive. Chinese titles such as "永劫无间"
+    may not be found when the request is forced to english/US even though the
+    game exists under an English title (NARAKA: BLADEPOINT). This helper tries
+    the requested locale first, then common Chinese/English fallback locales,
+    plus a small alias map for high-signal Chinese titles.
     """
     status: Dict[str, object] = {"ok": False, "query": query, "message": "", "rows": 0}
     query = (query or "").strip()
@@ -28,44 +63,56 @@ def search_steam_apps(query: str, limit: int = 10, country: str = "US", language
         status["message"] = "请输入游戏名称。"
         return [], status
 
-    url = "https://store.steampowered.com/api/storesearch/"
-    params = {
-        "term": query,
-        "l": language,
-        "cc": country,
+    alias_queries = {
+        "永劫无间": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
+        "永劫": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
     }
-    try:
-        response = requests.get(url, params=params, timeout=20)
-        response.raise_for_status()
-        payload = response.json()
-    except requests.RequestException as exc:
-        status["message"] = f"Steam 搜索请求失败：{exc.__class__.__name__}"
-        status["error_detail"] = str(exc)
-        return [], status
-    except ValueError as exc:
-        status["message"] = "Steam 搜索返回内容无法解析。"
-        status["error_detail"] = str(exc)
-        return [], status
+    queries = alias_queries.get(query, [query])
+    locale_attempts = []
+    for cc, lang in [(country, language), ("CN", "schinese"), ("US", "english")]:
+        if (cc, lang) not in locale_attempts:
+            locale_attempts.append((cc, lang))
 
-    items = payload.get("items", []) or []
-    results: List[Dict[str, object]] = []
-    for item in items[:limit]:
-        app_id = item.get("id")
-        name = item.get("name")
-        if not app_id or not name:
-            continue
-        results.append({
-            "app_id": int(app_id),
-            "name": str(name),
-            "price": item.get("price", {}).get("final_formatted") if isinstance(item.get("price"), dict) else item.get("price"),
-            "tiny_image": item.get("tiny_image", ""),
-            "metacritic_score": item.get("metacritic", {}).get("score") if isinstance(item.get("metacritic"), dict) else None,
-        })
+    merged: List[Dict[str, object]] = []
+    seen_app_ids = set()
+    attempts = []
+    last_error = None
+    for q in queries:
+        for cc, lang in locale_attempts:
+            attempts.append({"query": q, "country": cc, "language": lang})
+            try:
+                batch = _steam_store_search_once(q, limit=limit, country=cc, language=lang)
+            except requests.RequestException as exc:
+                last_error = exc
+                continue
+            except ValueError as exc:
+                last_error = exc
+                continue
+            for item in batch:
+                app_id = item["app_id"]
+                if app_id in seen_app_ids:
+                    continue
+                seen_app_ids.add(app_id)
+                merged.append(item)
+                if len(merged) >= limit:
+                    break
+            if len(merged) >= limit:
+                break
+        if len(merged) >= limit:
+            break
 
+    status["attempts"] = attempts
     status["ok"] = True
-    status["rows"] = len(results)
-    status["message"] = f"找到 {len(results)} 个候选游戏。" if results else "没有找到匹配游戏，请换一个关键词。"
-    return results, status
+    status["rows"] = len(merged)
+    if merged:
+        status["message"] = f"找到 {len(merged)} 个候选游戏。"
+    elif last_error:
+        status["ok"] = False
+        status["message"] = f"Steam 搜索请求失败：{last_error.__class__.__name__}"
+        status["error_detail"] = str(last_error)
+    else:
+        status["message"] = "没有找到匹配游戏，请换一个关键词。"
+    return merged, status
 
 
 def fetch_steam_reviews(
