@@ -20,3 +20,9 @@ For localization, never perform unbounded global English-to-Chinese replacements
 - Source: error
 - Related Files: frontend/src/**/*.tsx, frontend/src/**/*.ts
 - Tags: localization, typescript, replacement-safety
+
+## [ERR-20260428-002] assumed ripgrep was available on Windows
+- Context: While checking remaining English UI strings in `D:\codes\AI-Powered-GPI-OSS`, attempted to use `rg`, but this Windows environment did not have ripgrep on PATH.
+- Symptom: PowerShell returned `rg: The term 'rg' is not recognized...`.
+- Fix: Use PowerShell `Get-ChildItem ... | Select-String` for portable local text scans unless tool availability has been verified.
+- Lesson: On this machine, do not assume Unix/dev convenience tools are installed; prefer bundled/known tools or PowerShell-native equivalents.

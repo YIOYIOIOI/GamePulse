@@ -1,5 +1,5 @@
 import { useDataStore } from '../lib/useDataStore';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip as RTooltip, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip as RTooltip, ScatterChart, Scatter, ZAxis } from 'recharts';
 import clsx from 'clsx';
 import { AlertCircle } from 'lucide-react';
 
@@ -12,15 +12,14 @@ export function PlayerSegmentation() {
     return (
       <div className="p-12 text-center">
         <AlertCircle className="w-8 h-8 text-zinc-400 dark:text-zinc-300 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Insufficient Data</h2>
-        <p className="text-zinc-500 dark:text-zinc-300 max-w-md mx-auto">Player segmentation requires "playtime_forever" and "sentiment" fields. Please connect a dataset that includes these fields.</p>
+        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">数据不足</h2>
+        <p className="text-zinc-500 dark:text-zinc-300 max-w-md mx-auto">玩家分层需要游玩时长和情绪字段。请接入包含这些字段的数据集。</p>
       </div>
     );
   }
 
-  // Segment logic
   const segments = {
-    '新玩家': validData.filter(d => d.player_type === '新玩家'),
+    '新手玩家': validData.filter(d => d.player_type === '新手玩家'),
     '普通玩家': validData.filter(d => d.player_type === '普通玩家'),
     '核心玩家': validData.filter(d => d.player_type === '核心玩家'),
   };
@@ -29,8 +28,6 @@ export function PlayerSegmentation() {
     const total = groupData.length;
     const neg = groupData.filter(d => d.sentiment === 'negative').length;
     const avgPlaytime = groupData.reduce((acc, curr) => acc + (curr.playtime_forever || 0), 0) / (total || 1);
-
-    // Calculate medians for proxies
     const avgRisk = groupData.reduce((acc, curr) => acc + (curr.churn_risk_proxy || 50), 0) / (total || 1);
     const avgVal = groupData.reduce((acc, curr) => acc + (curr.value_potential_score || 50), 0) / (total || 1);
 
@@ -44,7 +41,6 @@ export function PlayerSegmentation() {
     };
   }).filter(s => s.total > 0);
 
-  // Scatter data (Proxy map) - sample up to 100 points
   const scatterData = [...validData].sort(() => 0.5 - Math.random()).slice(0, 100).map(d => ({
     x: d.value_potential_score || 50,
     y: d.churn_risk_proxy || 50,
@@ -56,82 +52,64 @@ export function PlayerSegmentation() {
     <div className="py-12 px-8">
       <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">玩家分层</h1>
-        <p className="text-zinc-500 dark:text-zinc-300">Categorize players based on engagement and behavioral proxies.</p>
+        <p className="text-zinc-500 dark:text-zinc-300">基于活跃度、游玩时长和口碑倾向，对玩家进行运营分层。</p>
 
         <div className="mt-4 inline-block bg-blue-50 border border-blue-100 rounded-lg px-4 py-2">
           <p className="text-xs text-blue-800">
-             <span className="font-bold">Important Context:</span> This module uses public reviews and playtime as proxies. Metrics below are <span className="underline">not</span> true internal LTV or exact retention models.
+             <span className="font-bold">说明：</span> 本模块使用公开评论和游玩时长作为代理指标，不代表真实内部 LTV、付费转化或精确留存模型。
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-
-        {/* Value vs Risk Matrix */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">
-           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-2">Value & Risk Matrix (Proxy)</h2>
-           <p className="text-xs text-zinc-400 dark:text-zinc-300 mb-6">X: Active Value | Y: 流失风险 Proxy | Color: Sentiment</p>
+           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-2">价值 × 风险矩阵（代理指标）</h2>
+           <p className="text-xs text-zinc-400 dark:text-zinc-300 mb-6">横轴：活跃价值代理；纵轴：流失风险代理；颜色：评论情绪。</p>
 
            <div className="h-[300px]">
              <ResponsiveContainer width="100%" height="100%">
                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                 <XAxis type="number" dataKey="x" name="Value Proxy" domain={[0, 100]} tick={{fontSize: 12, fill: '#a1a1aa'}} axisLine={false} tickLine={false} />
-                 <YAxis type="number" dataKey="y" name="Risk Proxy" domain={[0, 100]} tick={{fontSize: 12, fill: '#a1a1aa'}} axisLine={false} tickLine={false} />
+                 <XAxis type="number" dataKey="x" name="活跃价值代理" domain={[0, 100]} tick={{fontSize: 12, fill: '#a1a1aa'}} axisLine={false} tickLine={false} />
+                 <YAxis type="number" dataKey="y" name="流失风险代理" domain={[0, 100]} tick={{fontSize: 12, fill: '#a1a1aa'}} axisLine={false} tickLine={false} />
                  <ZAxis type="number" dataKey="z" range={[40, 40]} />
                  <RTooltip cursor={{strokeDasharray: '3 3'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                 <Scatter
-                   name="Positive"
-                   data={scatterData.filter(d => d.sentiment === 'positive')}
-                   fill="#10b981"
-                   fillOpacity={0.6}
-                 />
-                 <Scatter
-                   name="Negative"
-                   data={scatterData.filter(d => d.sentiment === 'negative')}
-                   fill="#ef4444"
-                   fillOpacity={0.6}
-                 />
+                 <Scatter name="正向" data={scatterData.filter(d => d.sentiment === 'positive')} fill="#10b981" fillOpacity={0.6} />
+                 <Scatter name="负向" data={scatterData.filter(d => d.sentiment === 'negative')} fill="#ef4444" fillOpacity={0.6} />
                </ScatterChart>
              </ResponsiveContainer>
            </div>
         </div>
 
-        {/* Segment Breakdown */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">
-           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">Segment Analysis</h2>
+           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">分层概览</h2>
 
            <div className="space-y-6">
               {segmentStats.map(s => (
                 <div key={s.name} className="flex flex-col">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-zinc-900 dark:text-zinc-100">{s.name}</span>
-                    <span className="text-xs font-mono text-zinc-500 dark:text-zinc-300">{s.total} users</span>
+                    <span className="text-xs font-mono text-zinc-500 dark:text-zinc-300">{s.total} 人</span>
                   </div>
 
                   <div className="flex gap-4">
                     <div className="flex-1 bg-zinc-50 dark:bg-zinc-800 p-2 rounded-lg border border-zinc-100 dark:border-zinc-700/50/50">
-                       <div className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold mb-1">Avg Playtime</div>
+                       <div className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold mb-1">平均游玩</div>
                        <div className="font-mono text-zinc-700 dark:text-zinc-300">{s.avgPlaytime}h</div>
                     </div>
                     <div className="flex-1 bg-zinc-50 dark:bg-zinc-800 p-2 rounded-lg border border-zinc-100 dark:border-zinc-700/50/50">
-                       <div className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold mb-1">Negative Ratio</div>
-                       <div className={clsx("font-mono", s.negRatio > 40 ? "text-red-500" : "text-emerald-500")}>
-                         {s.negRatio.toFixed(1)}%
-                       </div>
+                       <div className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold mb-1">负向占比</div>
+                       <div className={clsx("font-mono", s.negRatio > 40 ? "text-red-500" : "text-emerald-500")}>{s.negRatio.toFixed(1)}%</div>
                     </div>
                     <div className="flex-1 bg-zinc-50 dark:bg-zinc-800 p-2 rounded-lg border border-zinc-100 dark:border-zinc-700/50/50">
-                       <div className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold mb-1">CRM Priority</div>
-                       <div className="font-mono text-blue-600">
-                         {s.avgRisk > 60 || s.avgVal > 70 ? 'High' : 'Normal'}
-                       </div>
+                       <div className="text-[10px] uppercase text-zinc-400 dark:text-zinc-300 font-bold mb-1">触达优先级</div>
+                       <div className="font-mono text-blue-600">{s.avgRisk > 60 || s.avgVal > 70 ? '高' : '常规'}</div>
                     </div>
                   </div>
                 </div>
               ))}
            </div>
         </div>
-
       </div>
     </div>
   );

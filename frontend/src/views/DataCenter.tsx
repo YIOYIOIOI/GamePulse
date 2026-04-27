@@ -86,7 +86,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
       });
     }, 500);
     try {
-      const finalGameName = steamConfig.gameName === 'Custom' ? (steamConfig.customName || 'Custom Game') : steamConfig.gameName;
+      const finalGameName = steamConfig.gameName === 'Custom' ? (steamConfig.customName || '自定义游戏') : steamConfig.gameName;
       setFetchProgress({ label: `正在采集《${finalGameName}》评论...`, value: 18 });
       const rawData = await fetchSteamReviews({ ...steamConfig, gameName: finalGameName });
       setFetchProgress({ label: `已采集 ${rawData.length.toLocaleString()} 条评论，正在标准化字段...`, value: 92 });
@@ -119,7 +119,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
           alert('CSV 为空或格式无效。');
           return;
         }
-        const standardData = standardizeData(results.data, 'Uploaded Custom Game');
+        const standardData = standardizeData(results.data, '上传数据集');
         appendData(standardData, `CSV: ${file.name}`);
         onChangeView('workbench');
       },
@@ -137,7 +137,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
       // Simulate loading local file by using our steam mock
       const rawData = await fetchSteamReviews({ gameName: 'Elden Ring', appId: '1245620', count: 500, reviewType: 'all' });
       const standardData = standardizeData(rawData, 'Elden Ring');
-      appendData(standardData, 'Local: elden_ring_reviews.csv');
+      appendData(standardData, '本地样例：elden_ring_reviews.csv');
       onChangeView('workbench');
     } catch (e) {
       alert('项目样例加载失败。');
@@ -297,7 +297,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
            </button>
         </div>
 
-        {/* Local / Upload Source */}
+        {/* 本地上传 */}
         <div className="flex flex-col gap-6">
 
           <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50 relative overflow-hidden flex-1 flex flex-col justify-center transition-colors">
@@ -320,7 +320,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                   onClick={() => fileInputRef.current?.click()}
                   className="px-6 py-2 border border-zinc-300 dark:border-zinc-700 rounded-full text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-zinc-700 dark:text-zinc-300"
                >
-                 Select CSV File
+                 选择 CSV 文件
                </button>
              </div>
           </div>
@@ -339,7 +339,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                 disabled={isFetching}
                 className="ml-auto px-4 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-semibold rounded-lg transition-colors border border-zinc-300 dark:border-zinc-700"
               >
-                Load
+                加载
              </button>
           </div>
 
@@ -356,7 +356,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
               className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Clear Dataset
+              清空数据集
             </button>
           </div>
 

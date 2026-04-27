@@ -2,6 +2,7 @@ import { useDataStore } from '../lib/useDataStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Legend, Tooltip as RTooltip } from 'recharts';
 import { AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
+import { normalizeTopicLabel } from '../lib/dataProcessor';
 
 export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string) => void }) {
   const { data, status } = useDataStore();
@@ -14,13 +15,13 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
         </div>
         <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">需要更多数据</h2>
         <p className="text-zinc-500 dark:text-zinc-300 max-w-md mx-auto mb-8">
-          Competitor analysis requires data from at least two different games. Please append another dataset.
+          竞品分析至少需要两个不同游戏的数据集。请继续追加另一个游戏的数据。
         </p>
         <button
           onClick={() => onChangeView('data-center')}
           className="bg-black dark:bg-white text-white dark:text-zinc-900 px-6 py-2.5 rounded-full font-medium hover:bg-zinc-800 transition-colors"
         >
-          Append More Data
+          追加数据
         </button>
       </div>
     );
@@ -35,7 +36,7 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
     const neg = gameData.filter(d => d.sentiment === 'negative').length;
 
     const topicCounts = gameData.reduce((acc, curr) => {
-      const t = curr.topic_description || 'General';
+      const t = normalizeTopicLabel(curr.topic_description) || '综合体验反馈';
       acc[t] = (acc[t] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -53,8 +54,8 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
   // Prepare chart data
   const chartData = gameStats.map(s => ({
     name: s.game,
-    Positive: Number(s.posRate.toFixed(1)),
-    Negative: Number(s.negRate.toFixed(1)),
+    正向: Number(s.posRate.toFixed(1)),
+    负向: Number(s.negRate.toFixed(1)),
   }));
 
   return (
@@ -65,7 +66,7 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
           <p className="text-zinc-500 dark:text-zinc-300">跨游戏比较玩家情绪结构与主要痛点。</p>
         </div>
         <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50 px-3 py-1.5 rounded-lg text-xs font-mono font-medium">
-          {games.length} Games Compared
+          {games.length} 款游戏对比
         </div>
       </div>
 
@@ -82,14 +83,14 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#71717a', fontSize: 12}} domain={[0, 100]} tickFormatter={val => `${val}%`} />
                 <RTooltip cursor={{fill: '#f4f4f5'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Bar dataKey="Positive" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} barSize={40} />
-                <Bar dataKey="Negative" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="正向" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} barSize={40} />
+                <Bar dataKey="负向" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Highlights */}
+        {/* 关键观察 */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50 flex flex-col justify-center">
             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">关键观察</h2>
 
@@ -118,7 +119,7 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
 
       </div>
 
-      {/* Summary Table */}
+      {/* 汇总表 */}
       <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 shadow-sm overflow-hidden">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead className="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 border-b border-zinc-100 dark:border-zinc-700/50/50">

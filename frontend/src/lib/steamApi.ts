@@ -22,7 +22,7 @@ export async function searchSteamApps(query: string): Promise<SteamAppSearchResu
   const res = await fetch(`${API_BASE}/api/steam/search?q=${encodeURIComponent(q)}&limit=12`);
   const payload = await res.json();
   if (!res.ok || payload.status?.ok === false) {
-    throw new Error(payload.status?.message || 'Steam search failed');
+    throw new Error(payload.status?.message || 'Steam 游戏搜索失败');
   }
   return payload.results || [];
 }
@@ -41,7 +41,7 @@ export async function fetchSteamReviews(options: SteamFetchOptions) {
   });
   const payload = await res.json();
   if (!res.ok || payload.status?.ok === false) {
-    throw new Error(payload.status?.message || 'Steam review collection failed');
+    throw new Error(payload.status?.message || 'Steam 评论采集失败');
   }
   return payload.reviews || [];
 }

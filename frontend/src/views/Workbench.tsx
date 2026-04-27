@@ -1,6 +1,7 @@
 import { useDataStore } from '../lib/useDataStore';
 import { ShieldCheck, Crosshair, AlertTriangle, Lightbulb, Database } from 'lucide-react';
 import clsx from 'clsx';
+import { normalizeTopicLabel } from '../lib/dataProcessor';
 
 export function Workbench({ onChangeView }: { onChangeView: (v: string) => void }) {
   const { data, status } = useDataStore();
@@ -52,9 +53,9 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
     });
   }
 
-  // Find top negative topic
+  // 查找高频负向主题
   const negTopics = data.filter(r => r.sentiment === 'negative').reduce((acc, curr) => {
-    const t = curr.topic_description || 'General';
+    const t = normalizeTopicLabel(curr.topic_description) || '综合体验反馈';
     acc[t] = (acc[t] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
