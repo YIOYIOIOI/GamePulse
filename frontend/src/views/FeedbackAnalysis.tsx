@@ -4,6 +4,7 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import { normalizeTopicLabel } from '../lib/dataProcessor';
 import { classifyTopicsWithLlm, loadLlmSettings } from '../lib/llmClient';
+import { ProgressBar, type ProgressState } from '../components/ProgressBar';
 
 const FILTER_LABELS = {
   all: '全部',
@@ -16,6 +17,7 @@ export function FeedbackAnalysis() {
   const [filterMode, setFilterMode] = useState<'all' | 'negative' | 'positive'>('all');
   const [llmStatus, setLlmStatus] = useState('');
   const [isClassifying, setIsClassifying] = useState(false);
+  const [modelProgress, setModelProgress] = useState<ProgressState>(null);
 
   const filteredData = data.filter(d => filterMode === 'all' ? true : d.sentiment === filterMode);
 
@@ -55,12 +57,17 @@ export function FeedbackAnalysis() {
     setLlmStatus('正在使用 模型辅助分析进行主题细分...');
     try {
       const { result, fromCache } = await classifyTopicsWithLlm(data);
+      setModelProgress({ label: fromCache ? '已命中本地缓存，正在应用结果...' : '模型已返回，正在解析主题结果...', value: 78 });
       const updates = new Map((result.topics || []).map(item => [item.index, item.topic]));
       const next = data.map((row, index) => updates.has(index) ? { ...row, topic_description: updates.get(index), topic_source: fromCache ? '本地 AI 缓存' : '模型辅助分析' } : row);
       replaceData(next, fromCache ? 'AI 主题缓存' : 'AI 主题细分');
-      setLlmStatus(fromCache ? '已使用本地缓存完成主题细分。' : '已通过 模型辅助分析完成主题细分。');
+      setModelProgress({ label: fromCache ? '已使用本地缓存完成主题细分。' : '已通过模型辅助分析完成主题细分。', value: 100 });
+      setLlmStatus(fromCache ? '已使用本地缓存完成主题细分。' : '已通过模型辅助分析完成主题细分。');
+      window.setTimeout(() => setModelProgress(null), 1600);
     } catch (err) {
-      setLlmStatus(err instanceof Error ? err.message : 'AI 主题细分失败。');
+      setModelProgress({ label: '主题细分失败，请检查模型服务配置。', value: 100 });
+      setLlmStatus(err instanceof Error ? err.message : '模型主题细分失败。');
+      window.setTimeout(() => setModelProgress(null), 2200);
     } finally {
       setIsClassifying(false);
     }
@@ -85,6 +92,7 @@ export function FeedbackAnalysis() {
           </button>
           {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
         </div>
+        <div className="max-w-xl"><ProgressBar progress={modelProgress} /></div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

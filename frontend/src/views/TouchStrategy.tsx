@@ -4,12 +4,14 @@ import { Megaphone, AlertCircle, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import { normalizeTopicLabel } from '../lib/dataProcessor';
 import { generateStrategyWithLlm, loadLlmSettings } from '../lib/llmClient';
+import { ProgressBar, type ProgressState } from '../components/ProgressBar';
 
 export function TouchStrategy() {
   const { data } = useDataStore();
   const [llmStrategies, setLlmStrategies] = useState<Record<string, any>>({});
   const [llmStatus, setLlmStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [modelProgress, setModelProgress] = useState<ProgressState>(null);
 
   const validData = data.filter(d => d.player_type);
 
@@ -104,13 +106,19 @@ export function TouchStrategy() {
         topTopic: s.topTopic,
         samples: data.filter(d => d.player_type === s.group).slice(0, 12).map(d => ({ sentiment: d.sentiment, topic: d.topic_description, text: d.review_text.slice(0, 300) }))
       }));
+      setModelProgress({ label: '正在请求模型服务生成策略...', value: 42 });
       const { result, fromCache } = await generateStrategyWithLlm(payload);
+      setModelProgress({ label: fromCache ? '已命中本地缓存，正在应用策略...' : '模型已返回，正在整理策略卡...', value: 82 });
       const mapped: Record<string, any> = {};
       (result.strategies || []).forEach((item: any) => { if (item.group) mapped[item.group] = item; });
       setLlmStrategies(mapped);
-      setLlmStatus(fromCache ? '已使用本地缓存生成策略。' : '已通过 模型辅助分析生成策略。');
+      setModelProgress({ label: fromCache ? '已使用本地缓存生成策略。' : '已通过模型辅助分析生成策略。', value: 100 });
+      setLlmStatus(fromCache ? '已使用本地缓存生成策略。' : '已通过模型辅助分析生成策略。');
+      window.setTimeout(() => setModelProgress(null), 1600);
     } catch (err) {
-      setLlmStatus(err instanceof Error ? err.message : 'AI 策略生成失败。');
+      setModelProgress({ label: '策略生成失败，请检查模型服务配置。', value: 100 });
+      setLlmStatus(err instanceof Error ? err.message : '模型策略生成失败。');
+      window.setTimeout(() => setModelProgress(null), 2200);
     } finally {
       setIsGenerating(false);
     }
@@ -134,6 +142,7 @@ export function TouchStrategy() {
             </button>
             {llmStatus && <span className="text-xs text-zinc-500 dark:text-zinc-300">{llmStatus}</span>}
           </div>
+          <div className="max-w-xl"><ProgressBar progress={modelProgress} /></div>
         </div>
 
         <div className="flex bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2 rounded-lg items-center gap-2 max-w-sm">

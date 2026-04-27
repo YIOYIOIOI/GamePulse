@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { clearLlmMemory, DEFAULT_LLM_SETTINGS, fetchModelList, loadLlmMemory, loadLlmSettings, maskApiKey, saveLlmSettings, type LlmSettings, type ModelOption } from '../lib/llmClient';
 import { KeyRound, Trash2, Database, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { ProgressBar, type ProgressState } from '../components/ProgressBar';
 
 export function ModelSettings() {
   const [settings, setSettings] = useState<LlmSettings>(() => loadLlmSettings());
@@ -8,6 +9,7 @@ export function ModelSettings() {
   const [modelStatus, setModelStatus] = useState('');
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
+  const [modelListProgress, setModelListProgress] = useState<ProgressState>(null);
   const [memoryCount, setMemoryCount] = useState(() => loadLlmMemory().length);
   const [showSecret, setShowSecret] = useState(false);
 
@@ -31,13 +33,21 @@ export function ModelSettings() {
 
   const loadModels = async () => {
     setIsLoadingModels(true);
-    setModelStatus('正在获取可用模型...');
+    setModelStatus('');
+    setModelListProgress({ label: '正在连接模型服务...', value: 20 });
     try {
+      setModelListProgress({ label: '正在获取可用模型列表...', value: 55 });
       const rows = await fetchModelList(settings);
+      setModelListProgress({ label: '正在整理模型列表...', value: 85 });
       setModels(rows);
-      setModelStatus(rows.length ? `已获取 ${rows.length} 个模型。` : '服务返回为空，可手动填写模型名。');
+      const message = rows.length ? `已获取 ${rows.length} 个模型。` : '服务返回为空，可手动填写模型名。';
+      setModelStatus(message);
+      setModelListProgress({ label: message, value: 100 });
+      window.setTimeout(() => setModelListProgress(null), 1500);
     } catch (err) {
       setModelStatus(err instanceof Error ? err.message : '模型列表获取失败。');
+      setModelListProgress({ label: '模型列表获取失败，请检查服务地址和访问密钥。', value: 100 });
+      window.setTimeout(() => setModelListProgress(null), 2200);
     } finally {
       setIsLoadingModels(false);
     }
@@ -142,6 +152,7 @@ export function ModelSettings() {
                   ))}
                 </div>
               )}
+              <ProgressBar progress={modelListProgress} />
               {modelStatus && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-300">{modelStatus}</p>}
             </div>
           </div>
