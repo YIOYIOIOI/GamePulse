@@ -62,14 +62,22 @@ SEGMENT_COPY = {
     },
 }
 
-PAGE_LABELS = {
-    "board": "决策看板",
-    "quality": "数据体检",
-    "voice": "玩家反馈",
-    "segments": "玩家分层",
-    "campaigns": "触达方案",
-    "competitors": "竞品对比",
+PRIMARY_PAGES = {
+    "workspace": "工作台",
+    "data": "数据中心",
+    "insight": "洞察分析",
+    "strategy": "运营策略",
+    "competition": "竞品研究",
     "method": "口径说明",
+}
+
+SUB_PAGES = {
+    "workspace": {"board": "决策看板"},
+    "data": {"quality": "数据体检", "source": "数据接入"},
+    "insight": {"voice": "玩家反馈", "segments": "玩家分层"},
+    "strategy": {"campaigns": "触达方案"},
+    "competition": {"competitors": "竞品对比"},
+    "method": {"method": "口径说明"},
 }
 
 
@@ -130,6 +138,18 @@ def inject_css() -> None:
           background:rgba(33,27,22,.82); border:1px solid {LINE}; border-radius:22px;
           padding:10px 12px; margin:18px 0 22px; box-shadow:0 12px 34px rgba(0,0,0,.24);
         }}
+        .primary-shell {{
+          display:grid; grid-template-columns: 1fr auto; gap:16px; align-items:center;
+          background:rgba(33,27,22,.72); border:1px solid {LINE}; border-radius:24px;
+          padding:14px; margin:18px 0 14px; box-shadow:0 12px 34px rgba(0,0,0,.24);
+        }}
+        .data-chip {{
+          border:1px solid {LINE}; border-radius:18px; padding:12px 14px; min-width:260px;
+          background:#17120E; color:{MUTED}; font-size:12px; line-height:1.55;
+        }}
+        .data-chip b {{ color:{INK}; font-size:13px; }}
+        .subnav {{ margin: 0 0 24px; padding: 0 4px; }}
+        .page-frame {{ margin-top: 8px; }}
         div[role="radiogroup"] {{ gap:8px; }}
         div[role="radiogroup"] label {{
           background:#211B16; border:1px solid {LINE}; border-radius:999px; padding:8px 14px;
@@ -172,7 +192,8 @@ def init_state() -> None:
     st.session_state.setdefault("datasets", [])
     st.session_state.setdefault("active_df", None)
     st.session_state.setdefault("active_source", None)
-    st.session_state.setdefault("page", "board")
+    st.session_state.setdefault("primary_page", "workspace")
+    st.session_state.setdefault("sub_page", "board")
 
 
 def plot_layout(fig):
@@ -367,12 +388,72 @@ def data_command() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def nav() -> str:
-    st.markdown("<div class='nav-wrap'>", unsafe_allow_html=True)
-    page = st.radio("页面", list(PAGE_LABELS.keys()), format_func=lambda k: PAGE_LABELS[k], horizontal=True, label_visibility="collapsed")
+def data_status_chip(df: pd.DataFrame | None) -> str:
+    if df is None or len(df) == 0:
+        return "<div class='data-chip'><b>未加载数据</b><br>进入“数据中心”采集或加载 CSV。</div>"
+    games = df["game_name"].nunique() if "game_name" in df.columns else 1
+    return f"<div class='data-chip'><b>{len(df):,} 条记录 · {games} 款游戏</b><br>{st.session_state.active_source or '当前数据集'}</div>"
+
+
+def nav(df: pd.DataFrame | None) -> tuple[str, str]:
+    st.markdown("<div class='primary-shell'>", unsafe_allow_html=True)
+    left, right = st.columns([1, .28])
+    with left:
+        primary = st.radio(
+            "一级导航",
+            list(PRIMARY_PAGES.keys()),
+            format_func=lambda k: PRIMARY_PAGES[k],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="primary_nav",
+        )
+    with right:
+        st.markdown(data_status_chip(df), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-    st.session_state.page = page
-    return page
+
+    sub_options = SUB_PAGES[primary]
+    if len(sub_options) == 1:
+        sub = next(iter(sub_options.keys()))
+    else:
+        st.markdown("<div class='subnav'>", unsafe_allow_html=True)
+        sub = st.radio(
+            "二级导航",
+            list(sub_options.keys()),
+            format_func=lambda k: sub_options[k],
+            horizontal=True,
+            label_visibility="collapsed",
+            key=f"sub_nav_{primary}",
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.session_state.primary_page = primary
+    st.session_state.sub_page = sub
+    return primary, sub
+
+
+def data_center(df: pd.DataFrame | None) -> None:
+    section("Data Center", "数据中心", "所有数据操作集中在这里。分析页不再放采集控件，避免工作流混乱。")
+    data_command()
+    if df is None:
+        st.markdown(
+            """
+            <div class="action-list">
+              <div class="action-card"><h3>采集</h3><p>从 Steam 公开接口采集真实评论。</p></div>
+              <div class="action-card"><h3>合并</h3><p>开启“追加到当前数据集”，连续采集多款游戏做竞品对比。</p></div>
+              <div class="action-card"><h3>校验</h3><p>加载后先进入“数据体检”，确认样本和字段是否足够。</p></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+    st.markdown("<div class='card'><h3>当前数据集</h3>", unsafe_allow_html=True)
+    st.dataframe(
+        pd.DataFrame([
+            {"来源": item["source"], "记录数": len(item["df"]), "游戏数": item["df"]["game_name"].nunique() if "game_name" in item["df"].columns else 1}
+            for item in st.session_state.datasets
+        ]),
+        width="stretch",
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def section(kicker: str, title: str, copy: str) -> None:
@@ -577,15 +658,20 @@ def main() -> None:
     topbar()
     df = normalize_loaded_df(st.session_state.active_df) if st.session_state.active_df is not None else None
     hero(df)
-    data_command()
-    page = nav()
-    if df is None:
+    primary, page = nav(df)
+
+    st.markdown("<div class='page-frame'>", unsafe_allow_html=True)
+    if primary == "data" and page == "source":
+        data_center(df)
+    elif primary == "data" and page == "quality":
+        if df is None:
+            empty_state()
+        else:
+            quality(df)
+    elif df is None:
         empty_state()
-        return
-    if page == "board":
+    elif page == "board":
         board(df)
-    elif page == "quality":
-        quality(df)
     elif page == "voice":
         voice(df)
     elif page == "segments":
@@ -596,6 +682,7 @@ def main() -> None:
         competitors(df)
     elif page == "method":
         method()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
