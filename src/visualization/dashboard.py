@@ -1,407 +1,319 @@
-"""
-可视化 Dashboard
-使用 Streamlit 构建交互式分析面板
-"""
+"""Product-grade Streamlit console for AI game strategy operations."""
 
-import streamlit as st
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import json
-from pathlib import Path
-import sys
+import streamlit as st
 
-# 添加项目根目录到路径
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
+from src.analysis.product_metrics import (  # noqa: E402
+    build_lifecycle_proxy,
+    evaluate_data_quality,
+    evidence_backed_actions,
+    executive_summary,
+)
 
-def load_data(data_path: str) -> pd.DataFrame:
-    """加载数据"""
-    try:
-        df = pd.read_csv(data_path)
-        # 确保时间列是 datetime 类型
-        if 'timestamp_created' in df.columns:
-            df['timestamp_created'] = pd.to_datetime(df['timestamp_created'])
-        if 'year_month' in df.columns:
-            df['year_month'] = pd.to_datetime(df['year_month'].astype(str))
-        return df
-    except Exception as e:
-        st.error(f"数据加载失败: {e}")
+BRAND = {
+    "bg": "#0B1020",
+    "panel": "#111827",
+    "panel2": "#172033",
+    "text": "#E5E7EB",
+    "muted": "#94A3B8",
+    "blue": "#60A5FA",
+    "green": "#34D399",
+    "red": "#FB7185",
+    "amber": "#FBBF24",
+}
+
+
+def inject_css() -> None:
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{ background: linear-gradient(180deg, {BRAND['bg']} 0%, #0F172A 100%); color: {BRAND['text']}; }}
+        section[data-testid="stSidebar"] {{ background: #0F172A; border-right: 1px solid rgba(148,163,184,.18); }}
+        .hero {{ padding: 28px 30px; border-radius: 24px; background: radial-gradient(circle at top left, rgba(96,165,250,.28), rgba(17,24,39,.96) 45%); border: 1px solid rgba(148,163,184,.18); margin-bottom: 18px; }}
+        .hero h1 {{ margin: 0; font-size: 34px; letter-spacing: -0.03em; }}
+        .hero p {{ color: {BRAND['muted']}; font-size: 15px; max-width: 900px; }}
+        .metric-card {{ background: rgba(17,24,39,.82); border: 1px solid rgba(148,163,184,.18); border-radius: 18px; padding: 18px; min-height: 120px; }}
+        .metric-label {{ color: {BRAND['muted']}; font-size: 13px; }}
+        .metric-value {{ color: white; font-size: 28px; font-weight: 700; margin-top: 8px; }}
+        .metric-note {{ color: {BRAND['muted']}; font-size: 12px; margin-top: 8px; }}
+        .action-card {{ background: rgba(15,23,42,.92); border: 1px solid rgba(96,165,250,.22); border-radius: 18px; padding: 18px; margin-bottom: 12px; }}
+        .tag {{ display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(96,165,250,.16); color:#BFDBFE; font-size:12px; margin-right:6px; }}
+        .warning-box {{ padding: 14px 16px; border-radius: 16px; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); }}
+        .ok-box {{ padding: 14px 16px; border-radius: 16px; background: rgba(52,211,153,.10); border: 1px solid rgba(52,211,153,.28); }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def load_data(path_or_file) -> pd.DataFrame:
+    if path_or_file is None:
         return pd.DataFrame()
+    df = pd.read_csv(path_or_file)
+    for col in ["timestamp_created", "created_at", "year_month", "date"]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
 
 
-def plot_sentiment_distribution(df: pd.DataFrame):
-    """情绪分布饼图"""
-    if 'sentiment' not in df.columns:
-        st.warning("数据中没有情绪信息")
-        return
+def find_default_files() -> list[Path]:
+    root = Path(__file__).resolve().parents[2]
+    results = root / "data" / "results"
+    if not results.exists():
+        return []
+    files = sorted(results.glob("*.csv"), key=lambda p: p.stat().st_size, reverse=True)
+    return [p for p in files if "sentiment" in p.name or "topic" in p.name][:10]
 
-    sentiment_counts = df['sentiment'].value_counts()
 
-    fig = px.pie(
-        values=sentiment_counts.values,
-        names=sentiment_counts.index,
-        title='玩家情绪分布',
-        color=sentiment_counts.index,
-        color_discrete_map={
-            'positive': '#2ecc71',
-            'negative': '#e74c3c',
-            'neutral': '#95a5a6'
-        }
+def metric_card(label: str, value: str, note: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="metric-card">
+          <div class="metric-label">{label}</div>
+          <div class="metric-value">{value}</div>
+          <div class="metric-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    fig.update_traces(textposition='inside', textinfo='percent+label')
-    st.plotly_chart(fig, use_container_width=True)
 
-
-def plot_sentiment_trend(df: pd.DataFrame):
-    """情绪趋势折线图"""
-    if 'year_month' not in df.columns or 'sentiment' not in df.columns:
-        st.warning("缺少必要的数据列")
-        return
-
-    # 按月统计情绪
-    sentiment_by_month = df.groupby(['year_month', 'sentiment']).size().unstack(fill_value=0)
-
-    fig = go.Figure()
-
-    for sentiment in sentiment_by_month.columns:
-        color = {'positive': '#2ecc71', 'negative': '#e74c3c', 'neutral': '#95a5a6'}.get(sentiment, '#3498db')
-        fig.add_trace(go.Scatter(
-            x=sentiment_by_month.index,
-            y=sentiment_by_month[sentiment],
-            name=sentiment.capitalize(),
-            mode='lines+markers',
-            line=dict(color=color, width=2),
-            marker=dict(size=6)
-        ))
-
-    fig.update_layout(
-        title='玩家情绪随时间变化趋势',
-        xaxis_title='时间',
-        yaxis_title='评论数量',
-        hovermode='x unified'
+def page_header() -> None:
+    st.markdown(
+        """
+        <div class="hero">
+          <div class="tag">AI Strategy Operations</div><div class="tag">Evidence-first</div><div class="tag">Game Ops Console</div>
+          <h1>GamePulse AI 运营策略控制台</h1>
+          <p>面向游戏运营团队的玩家声音分析、生命周期代理洞察、智能触达策略与内容生产工作台。系统只输出当前数据能够支撑的结论；真实 LTV、付费转化与留存需要接入内部日志后才会启用。</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+
+def render_quality_gate(df: pd.DataFrame) -> None:
+    q = evaluate_data_quality(df)
+    st.subheader("Data Quality Gate · 数据可信度")
+    cols = st.columns(4)
+    with cols[0]:
+        metric_card("样本量", f"{q.sample_size:,}", q.grade)
+    with cols[1]:
+        metric_card("时间跨度", "N/A" if q.date_span_days is None else f"{q.date_span_days} 天", "<14天不输出趋势")
+    with cols[2]:
+        metric_card("游戏/竞品数", str(q.games_count), "≥2 才启用竞品监控")
+    with cols[3]:
+        fields = sum([q.has_sentiment, q.has_topics, q.has_player_type, q.has_playtime])
+        metric_card("关键信号完整度", f"{fields}/4", "情绪/主题/分群/时长")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("<div class='ok-box'><b>当前可支持模块</b><br>" + "<br>".join([f"✅ {x}" for x in q.supported_modules]) + "</div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown("<div class='warning-box'><b>限制与降级</b><br>" + "<br>".join([f"⚠️ {x}" for x in q.limitations]) + "</div>", unsafe_allow_html=True)
 
 
-def plot_player_type_distribution(df: pd.DataFrame):
-    """玩家类型分布"""
-    if 'player_type' not in df.columns:
-        st.warning("数据中没有玩家类型信息")
+def render_overview(df: pd.DataFrame) -> None:
+    s = executive_summary(df)
+    st.subheader("Executive Overview · 运营总览")
+    cols = st.columns(4)
+    with cols[0]:
+        metric_card("产品健康分", "N/A" if s["health_score"] is None else f"{s['health_score']}/100", "由公开口碑代理计算")
+    with cols[1]:
+        metric_card("正向口碑", "N/A" if s["positive_rate"] is None else f"{s['positive_rate']:.1%}", "sentiment / vote_up")
+    with cols[2]:
+        metric_card("负向风险", "N/A" if s["negative_rate"] is None else f"{s['negative_rate']:.1%}", "用于舆情风险判断")
+    with cols[3]:
+        metric_card("可用模块", str(len(s["supported_modules"])), "通过数据门槛后启用")
+
+    actions = evidence_backed_actions(df)
+    st.markdown("#### 今日运营动作建议")
+    if not actions:
+        st.info("当前数据不足以输出运营动作。请补采更多评论或上传已分析结果文件。")
+    for a in actions:
+        st.markdown(
+            f"""
+            <div class="action-card">
+              <h4>{a['title']}</h4>
+              <p><b>Evidence:</b> {a['evidence']}</p>
+              <p><b>Action:</b> {a['action']}</p>
+              <p style="color:{BRAND['muted']}"><b>Risk:</b> {a['risk']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_sentiment_topic(df: pd.DataFrame) -> None:
+    st.subheader("Voice of Player · 玩家声音洞察")
+    c1, c2 = st.columns(2)
+    with c1:
+        if "sentiment" in df.columns:
+            counts = df["sentiment"].value_counts()
+            fig = px.pie(values=counts.values, names=counts.index, hole=.55, title="情绪结构")
+            fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("缺少 sentiment 字段，情绪分析不可用。")
+    with c2:
+        if "topic_description" in df.columns:
+            topics = df["topic_description"].value_counts().head(10).sort_values()
+            fig = px.bar(x=topics.values, y=topics.index, orientation="h", title="Top 玩家主题/痛点")
+            fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("缺少 topic_description 字段，主题洞察不可用。")
+
+    time_col = "timestamp_created" if "timestamp_created" in df.columns else None
+    if time_col and "sentiment" in df.columns:
+        tmp = df.dropna(subset=[time_col]).copy()
+        if len(tmp):
+            tmp["month"] = tmp[time_col].dt.to_period("M").astype(str)
+            trend = tmp.groupby(["month", "sentiment"]).size().reset_index(name="count")
+            fig = px.line(trend, x="month", y="count", color="sentiment", markers=True, title="口碑趋势")
+            fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True)
+
+
+def render_lifecycle(df: pd.DataFrame) -> None:
+    st.subheader("Player Lifecycle Lab · 生命周期代理分析")
+    q = evaluate_data_quality(df)
+    if "玩家分群与生命周期代理分析" not in q.supported_modules:
+        st.warning("当前数据不足以启用生命周期代理分析。需要 ≥1000 样本，并具备玩家分群与游玩时长字段。")
         return
 
-    player_counts = df['player_type'].value_counts()
+    proxy = build_lifecycle_proxy(df)
+    c1, c2 = st.columns(2)
+    with c1:
+        fig = px.histogram(proxy, x="value_potential_score", nbins=30, title="价值潜力代理分布")
+        fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        fig = px.histogram(proxy, x="churn_risk_proxy", color="crm_priority", nbins=30, title="流失风险代理与触达优先级")
+        fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig, use_container_width=True)
 
-    fig = px.bar(
-        x=player_counts.index,
-        y=player_counts.values,
-        title='玩家类型分布',
-        labels={'x': '玩家类型', 'y': '数量'},
-        color=player_counts.index,
-        text=player_counts.values
-    )
-
-    fig.update_traces(texttemplate='%{text}', textposition='outside')
-    st.plotly_chart(fig, use_container_width=True)
+    st.caption("说明：这里是公开评论数据上的代理指标，不是真实 LTV/付费/留存。真实模型需要接入登录、充值、活动曝光和召回数据。")
+    st.dataframe(proxy[[c for c in ["player_type", "sentiment", "playtime_hours_proxy", "value_potential_score", "churn_risk_proxy", "crm_priority", "review_text"] if c in proxy.columns]].head(200), use_container_width=True)
 
 
-def plot_player_sentiment_by_type(df: pd.DataFrame):
-    """不同玩家类型的情绪对比"""
-    if 'player_type' not in df.columns or 'sentiment' not in df.columns:
-        st.warning("缺少必要的数据列")
+def render_crm_content(df: pd.DataFrame) -> None:
+    st.subheader("CRM Strategy & AI Content Pipeline · 触达策略与内容生产")
+    q = evaluate_data_quality(df)
+    if q.sample_size < 300:
+        st.warning("样本不足，不生成触达策略。")
         return
 
-    # 统计每种玩家类型的情绪分布
-    cross_tab = pd.crosstab(df['player_type'], df['sentiment'], normalize='index') * 100
-
-    fig = px.bar(
-        cross_tab,
-        barmode='group',
-        title='不同玩家类型的情绪分布对比',
-        labels={'value': '百分比 (%)', 'player_type': '玩家类型'},
-        color_discrete_map={
-            'positive': '#2ecc71',
-            'negative': '#e74c3c',
-            'neutral': '#95a5a6'
-        }
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+    segments = df["player_type"].value_counts().index.tolist() if "player_type" in df.columns else ["新手玩家", "普通玩家", "核心玩家"]
+    for seg in segments[:4]:
+        st.markdown(
+            f"""
+            <div class="action-card">
+              <h4>{seg} · 触达策略卡</h4>
+              <p><b>目标：</b>提升体验理解、降低负面扩散、促进社区参与。</p>
+              <p><b>触达内容：</b>基于该分群最高频痛点生成 FAQ / 活动说明 / 版本亮点文案。</p>
+              <p><b>AI文案草案：</b>“我们看到你最近关注的体验问题，团队已经整理了本周优化重点。完成指定任务可领取补给，并参与社区共创反馈。”</p>
+              <p style="color:{BRAND['muted']}"><b>审核要求：</b>AI只生成草案，发布前必须由运营确认是否符合真实版本内容。</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
-def plot_topic_distribution(df: pd.DataFrame):
-    """主题分布"""
-    if 'topic_description' not in df.columns:
-        st.warning("数据中没有主题信息")
+def render_competitor(df: pd.DataFrame) -> None:
+    st.subheader("Competitor Monitor · 竞品监控")
+    game_col = None
+    for col in ["game_name", "game", "app_name", "appid", "app_id"]:
+        if col in df.columns:
+            game_col = col
+            break
+    if not game_col or df[game_col].nunique() < 2:
+        st.warning("当前文件不足以做竞品监控：需要至少2款游戏/竞品数据。建议补采同品类游戏 Steam 评论，并保留 game_name 或 appid 字段。")
+        st.markdown("可采集方向：同品类头部产品、网易相近品类产品、近期爆款产品、直接竞争产品。")
         return
-
-    topic_counts = df['topic_description'].value_counts().head(10)
-
-    fig = px.bar(
-        x=topic_counts.values,
-        y=topic_counts.index,
-        orientation='h',
-        title='玩家关注主题 TOP10',
-        labels={'x': '评论数量', 'y': '主题'},
-        text=topic_counts.values
-    )
-
-    fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-    st.plotly_chart(fig, use_container_width=True)
-
-
-def plot_topic_sentiment_heatmap(df: pd.DataFrame):
-    """主题-情绪热力图"""
-    if 'topic_description' not in df.columns or 'sentiment' not in df.columns:
-        st.warning("缺少必要的数据列")
-        return
-
-    # 选择 TOP10 主题
-    top_topics = df['topic_description'].value_counts().head(10).index
-    df_filtered = df[df['topic_description'].isin(top_topics)]
-
-    # 创建交叉表
-    cross_tab = pd.crosstab(df_filtered['topic_description'], df_filtered['sentiment'])
-
-    fig = px.imshow(
-        cross_tab,
-        labels=dict(x="情绪", y="主题", color="评论数量"),
-        title='主题-情绪热力图',
-        color_continuous_scale='RdYlGn',
-        aspect='auto'
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-def plot_review_length_distribution(df: pd.DataFrame):
-    """评论长度分布"""
-    if 'review_length' not in df.columns:
-        st.warning("数据中没有评论长度信息")
-        return
-
-    fig = px.histogram(
-        df,
-        x='review_length',
-        nbins=50,
-        title='评论长度分布',
-        labels={'review_length': '评论长度（字符）', 'count': '数量'},
-        color_discrete_sequence=['#3498db']
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-def plot_playtime_vs_sentiment(df: pd.DataFrame):
-    """游戏时长 vs 情绪"""
-    if 'playtime_forever' not in df.columns or 'sentiment' not in df.columns:
-        st.warning("缺少必要的数据列")
-        return
-
-    fig = px.box(
-        df,
-        x='sentiment',
-        y='playtime_forever',
-        title='不同情绪评论者的游戏时长对比',
-        labels={'sentiment': '情绪', 'playtime_forever': '游戏时长（小时）'},
-        color='sentiment',
-        color_discrete_map={
-            'positive': '#2ecc71',
-            'negative': '#e74c3c',
-            'neutral': '#95a5a6'
-        }
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-def display_summary_stats(df: pd.DataFrame):
-    """显示摘要统计"""
-    st.header("📊 数据概览")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("总评论数", f"{len(df):,}")
-
-    with col2:
-        if 'sentiment' in df.columns:
-            positive_rate = (df['sentiment'] == 'positive').mean()
-            st.metric("好评率", f"{positive_rate:.1%}")
-
-    with col3:
-        if 'playtime_forever' in df.columns:
-            avg_playtime = df['playtime_forever'].mean()
-            st.metric("平均游戏时长", f"{avg_playtime:.1f}h")
-
-    with col4:
-        if 'timestamp_created' in df.columns:
-            try:
-                df['timestamp_created'] = pd.to_datetime(df['timestamp_created'])
-                date_range = (df['timestamp_created'].max() - df['timestamp_created'].min()).days
-                st.metric("数据时间跨度", f"{date_range} 天")
-            except:
-                st.metric("数据时间跨度", "N/A")
-
-
-def display_sentiment_summary(df: pd.DataFrame):
-    """显示情绪摘要"""
-    if 'sentiment' not in df.columns:
-        return
-
-    st.header("😊 情绪分析")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        plot_sentiment_distribution(df)
-
-    with col2:
-        st.subheader("详细统计")
-        sentiment_stats = df['sentiment'].value_counts()
-        sentiment_pct = df['sentiment'].value_counts(normalize=True)
-
-        for sentiment in ['positive', 'negative', 'neutral']:
-            if sentiment in sentiment_stats.index:
-                count = sentiment_stats[sentiment]
-                pct = sentiment_pct[sentiment]
-                emoji = {'positive': '👍', 'negative': '👎', 'neutral': '😐'}.get(sentiment)
-                st.markdown(f"**{emoji} {sentiment.capitalize()}**: {count:,} ({pct:.1%})")
-
-    st.markdown("---")
-    plot_sentiment_trend(df)
-
-
-def display_player_analysis(df: pd.DataFrame):
-    """显示玩家分析"""
-    st.header("👥 玩家群体分析")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        plot_player_type_distribution(df)
-
-    with col2:
-        plot_player_sentiment_by_type(df)
-
-    st.markdown("---")
-    plot_playtime_vs_sentiment(df)
-
-
-def display_topic_analysis(df: pd.DataFrame):
-    """显示主题分析"""
-    st.header("🔍 主题分析")
-
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        plot_topic_distribution(df)
-
-    with col2:
-        plot_topic_sentiment_heatmap(df)
-
-
-def display_review_samples(df: pd.DataFrame):
-    """显示评论样本"""
-    st.header("📝 评论样本")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("最新好评")
-        if 'sentiment' in df.columns and 'review_text' in df.columns:
-            positive_reviews = df[df['sentiment'] == 'positive'].sort_values('timestamp_created', ascending=False)
-            for _, review in positive_reviews.head(5).iterrows():
-                st.success(review['review_text'][:200] + "...")
-
-    with col2:
-        st.subheader("最新差评")
-        if 'sentiment' in df.columns and 'review_text' in df.columns:
-            negative_reviews = df[df['sentiment'] == 'negative'].sort_values('timestamp_created', ascending=False)
-            for _, review in negative_reviews.head(5).iterrows():
-                st.error(review['review_text'][:200] + "...")
-
-
-def main():
-    """主函数"""
-    st.set_page_config(
-        page_title="游戏玩家反馈分析系统",
-        page_icon="🎮",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
-    st.title("🎮 AI驱动的游戏玩家反馈分析系统")
-    st.markdown("---")
-
-    # 侧边栏
-    st.sidebar.header("📁 数据加载")
-
-    # 文件上传
-    uploaded_file = st.sidebar.file_uploader("上传分析结果文件 (CSV)", type=['csv'])
-
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-
-        # 确保时间列是 datetime 类型
-        if 'timestamp_created' in df.columns:
-            df['timestamp_created'] = pd.to_datetime(df['timestamp_created'], errors='coerce')
-        if 'year_month' in df.columns:
-            df['year_month'] = pd.to_datetime(df['year_month'].astype(str), errors='coerce')
-
-        st.sidebar.success(f"成功加载 {len(df)} 条评论")
-
-        # 数据预览
-        st.sidebar.markdown("---")
-        st.sidebar.header("⚙️ 显示选项")
-
-        show_overview = st.sidebar.checkbox("数据概览", value=True)
-        show_sentiment = st.sidebar.checkbox("情绪分析", value=True)
-        show_player = st.sidebar.checkbox("玩家分析", value=True)
-        show_topic = st.sidebar.checkbox("主题分析", value=True)
-        show_samples = st.sidebar.checkbox("评论样本", value=False)
-
-        # 显示内容
-        if show_overview:
-            display_summary_stats(df)
-            st.markdown("---")
-
-        if show_sentiment:
-            display_sentiment_summary(df)
-            st.markdown("---")
-
-        if show_player:
-            display_player_analysis(df)
-            st.markdown("---")
-
-        if show_topic:
-            display_topic_analysis(df)
-            st.markdown("---")
-
-        if show_samples:
-            display_review_samples(df)
-
+    if "sentiment" in df.columns:
+        comp = pd.crosstab(df[game_col], df["sentiment"], normalize="index").reset_index()
+        fig = px.bar(comp, x=game_col, y=[c for c in comp.columns if c != game_col], barmode="stack", title="竞品口碑结构")
+        fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("👈 请在侧边栏上传数据文件开始分析")
-
-        # 显示示例
-        st.subheader("📖 使用说明")
-        st.markdown("""
-        1. 在侧边栏上传已分析的评论数据 CSV 文件
-        2. 系统将自动生成可视化分析报告
-        3. 可以在侧边栏选择要显示的分析模块
-
-        **数据要求**：
-        - 必须包含 `review_text` 列（评论内容）
-        - 建议包含 `sentiment` 列（情绪标签）
-        - 建议包含 `topic_description` 列（主题描述）
-        - 建议包含 `player_type` 列（玩家类型）
-        """)
+        st.warning("缺少 sentiment 字段，无法比较竞品口碑结构。")
 
 
-if __name__ == '__main__':
+def render_methodology() -> None:
+    st.subheader("Methodology · 方法与边界")
+    st.markdown(
+        """
+        - **可真实支持**：公开评论规模、情绪结构、主题痛点、口碑趋势、基于游玩时长的玩家分层代理。
+        - **不可伪造**：真实 LTV、真实付费转化、真实留存/流失，需要公司内部日志、充值、活动曝光和触达回流数据。
+        - **产品原则**：数据不足则降级或隐藏，不用 AI 生成没有证据的经营结论。
+        - **接入内部数据后的升级**：用户级生命周期表 → LTV/转化/流失监督学习模型 → A/B触达实验 → 自动策略迭代。
+        """
+    )
+
+
+def main() -> None:
+    st.set_page_config(page_title="GamePulse AI Ops Console", page_icon="🎮", layout="wide", initial_sidebar_state="expanded")
+    inject_css()
+    page_header()
+
+    st.sidebar.title("GamePulse Console")
+    default_files = find_default_files()
+    file_choice = None
+    if default_files:
+        options = ["上传文件"] + [str(p) for p in default_files]
+        selected = st.sidebar.selectbox("选择已有分析文件", options)
+        if selected != "上传文件":
+            file_choice = selected
+    uploaded = st.sidebar.file_uploader("或上传 CSV", type=["csv"])
+
+    if uploaded is not None:
+        df = load_data(uploaded)
+    elif file_choice:
+        df = load_data(file_choice)
+    else:
+        st.info("请在侧边栏选择已有分析结果或上传 CSV。")
+        st.stop()
+
+    st.sidebar.success(f"已加载 {len(df):,} 条记录")
+    page = st.sidebar.radio(
+        "产品模块",
+        [
+            "运营总览",
+            "数据可信度",
+            "生命周期代理",
+            "玩家声音洞察",
+            "触达与内容生产",
+            "竞品监控",
+            "方法与边界",
+        ],
+    )
+
+    if page == "运营总览":
+        render_overview(df)
+        st.divider()
+        render_quality_gate(df)
+    elif page == "数据可信度":
+        render_quality_gate(df)
+    elif page == "生命周期代理":
+        render_lifecycle(df)
+    elif page == "玩家声音洞察":
+        render_sentiment_topic(df)
+    elif page == "触达与内容生产":
+        render_crm_content(df)
+    elif page == "竞品监控":
+        render_competitor(df)
+    else:
+        render_methodology()
+
+
+if __name__ == "__main__":
     main()
