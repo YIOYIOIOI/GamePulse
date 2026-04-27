@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from src.analysis.product_metrics import (  # noqa: E402
     build_lifecycle_proxy,
+    competitor_summary,
     evaluate_data_quality,
     evidence_backed_actions,
     executive_summary,
@@ -714,11 +715,7 @@ def competitors(df: pd.DataFrame) -> None:
             top = topic_game.sort_values("count", ascending=False).groupby("game_name").head(3)
             fig = px.bar(top, x="count", y="topic_description", color="game_name", orientation="h", title="各游戏高频话题")
             st.plotly_chart(plot_layout(fig), width="stretch")
-    table = df.groupby("game_name").agg(
-        records=("review_text", "count"),
-        positive_rate=("sentiment", lambda x: (x == "positive").mean() if len(x) else 0),
-        top_topic=("topic_description", lambda x: x.value_counts().idxmax() if len(x) else ""),
-    ).reset_index()
+    table = competitor_summary(df)
     st.dataframe(table, width="stretch")
 
 
