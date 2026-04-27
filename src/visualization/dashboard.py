@@ -174,12 +174,6 @@ def inject_css() -> None:
           background:#17120E; color:{MUTED}; font-size:12px; line-height:1.55;
         }}
         .data-chip b {{ color:{INK}; font-size:13px; }}
-        .subnav-links {{ display:flex; gap:10px; margin:-8px 0 22px; }}
-        .subnav-link {{
-          text-decoration:none !important; color:{MUTED} !important; font-weight:800; font-size:13px;
-          border-bottom:2px solid transparent; padding:8px 2px;
-        }}
-        .subnav-link.active {{ color:{INK} !important; border-bottom-color:{CLAY}; }}
         .page-frame {{ margin-top: 0; }}
         .section {{ margin:12px 0 20px; }}
         .section-kicker {{ color:{CLAY}; text-transform:uppercase; letter-spacing:.13em; font-size:11px; font-weight:900; }}
