@@ -32,8 +32,18 @@ export async function searchSteamApps(query: string): Promise<SteamAppSearchResu
 export async function searchSteamAppsWithProgress(query: string, onEvent: (event: ProgressEvent) => void): Promise<SteamAppSearchResult[]> {
   const q = query.trim();
   if (!q) return [];
-  const payload = await postProgressStream<ProgressEvent & { results?: SteamAppSearchResult[] }>(`${API_BASE}/api/steam/search/stream`, { q, limit: 12 }, onEvent);
-  return payload.results || [];
+  try {
+    const payload = await postProgressStream<ProgressEvent & { results?: SteamAppSearchResult[] }>(`${API_BASE}/api/steam/search/stream`, { q, limit: 12 }, onEvent);
+    return payload.results || [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const shouldFallback = message.includes('Not found') || message.includes('HTTP 404') || message.includes('服务端没有返回完成事件');
+    if (!shouldFallback) throw error;
+    onEvent({ stage: 'fallback', percent: 12, message: '当前本地服务未启用新版进度接口，正在切回兼容搜索...' });
+    const results = await searchSteamApps(q);
+    onEvent({ done: true, ok: true, percent: 100, rows: results.length, message: `搜索完成：${results.length} 个候选游戏。`, results });
+    return results;
+  }
 }
 
 export async function fetchSteamReviews(options: SteamFetchOptions) {
