@@ -90,7 +90,25 @@ cd AI-Powered-GPI-OSS
 
 2. **安装依赖**
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+.venv\\Scripts\\python.exe -m pip install -r requirements.txt
+```
+
+3. **启动产品控制台**
+```bash
+.venv\\Scripts\\streamlit.exe run src\\visualization\\dashboard.py
+```
+
+4. **构建真实本地竞品演示数据集**
+```bash
+.venv\\Scripts\\python.exe -m src.analysis.build_demo_dataset
+```
+
+该命令不会伪造评论，只会把本地已有的 DOTA 2 与 GTA V 分析结果合并，并补充 `game_name` 字段，用于演示竞品监控。
+
+5. **审计本地数据是否足以支撑产品功能**
+```bash
+.venv\\Scripts\\python.exe -m src.analysis.dataset_audit --results-dir data\\results
 ```
 
 3. **配置系统**（可选）
