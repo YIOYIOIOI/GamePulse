@@ -19,7 +19,7 @@ from src.analysis.product_metrics import (  # noqa: E402
     executive_summary,
 )
 from src.data_collection.steam_light_collector import (  # noqa: E402
-    fetch_steam_reviews,
+    safe_fetch_steam_reviews,
     save_collected_reviews,
 )
 
@@ -460,14 +460,16 @@ def data_command() -> None:
             st.write("")
             if st.button("采集数据", type="primary"):
                 with st.spinner(f"正在采集 {game_name} 的 Steam 评论..."):
-                    df_new = fetch_steam_reviews(int(app_id), game_name, int(max_reviews), language, review_type)
-                    if df_new.empty:
-                        st.error("没有采集到有效评论。")
+                    df_new, status = safe_fetch_steam_reviews(int(app_id), game_name, int(max_reviews), language, review_type)
+                    if not status.get("ok"):
+                        st.error(status.get("message", "采集失败"))
+                        if status.get("error_detail"):
+                            st.caption(status["error_detail"])
                     else:
                         out = save_collected_reviews(df_new, game_name)
                         set_active(df_new, f"Steam：{game_name} · {out.name}", append=append)
                         go("workspace", "board")
-                        st.success(f"已采集 {len(df_new):,} 条评论，已回到工作台。")
+                        st.success(f"{status.get('message')} 已回到工作台。")
                         st.rerun()
     elif source == "本地文件":
         files = find_default_files()

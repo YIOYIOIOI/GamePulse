@@ -455,3 +455,103 @@ def build_product_readiness(df: pd.DataFrame) -> Dict[str, object]:
         "field_status": field_status,
         "next_steps": next_steps,
     }
+
+
+
+def campaign_strategy_cards(df: pd.DataFrame) -> List[Dict[str, object]]:
+    """Build structured campaign strategy cards by player segment.
+
+    The output is intentionally frontend-friendly and report-friendly. It is not
+    a final publishing copy; every card contains an audit warning.
+    """
+    if df.empty:
+        return []
+
+    work = df.copy()
+    sentiment = canonical_sentiment_series(work)
+    if sentiment is not None:
+        work["_sentiment_norm"] = sentiment
+    topics = normalized_topic_series(work)
+    if topics is not None:
+        work["_topic_norm"] = topics
+    work["_player_type_norm"] = ensure_player_type(work)
+    work["_playtime_hours"] = playtime_hours_series(work)
+
+    segment_defaults = {
+        "新手玩家": {
+            "goal": "降低首次挫败，让玩家尽快理解核心乐趣。",
+            "content_direction": "上手任务、失败原因解释、低门槛奖励、3 分钟入门指南。",
+            "tone": "清楚、耐心、少术语。",
+        },
+        "普通玩家": {
+            "goal": "给出下一步目标，把零散活跃变成稳定参与。",
+            "content_direction": "阶段目标、限时活动、版本亮点、好友组队奖励。",
+            "tone": "直接、明确、强调收益和进度。",
+        },
+        "核心玩家": {
+            "goal": "保留高投入玩家的参与感，减少负面扩散。",
+            "content_direction": "版本解读、平衡性说明、高阶挑战、社区共创议题。",
+            "tone": "尊重判断，给足背景和解释。",
+        },
+    }
+
+    cards: List[Dict[str, object]] = []
+    for segment, part in work.groupby("_player_type_norm", dropna=False):
+        segment = normalize_player_type_value(segment)
+        defaults = segment_defaults.get(segment, segment_defaults["普通玩家"])
+        neg_rate = float((part["_sentiment_norm"] == "negative").mean()) if "_sentiment_norm" in part else None
+        topic = select_actionable_topic(part["_topic_norm"]) if "_topic_norm" in part else "泛体验反馈"
+        avg_play = float(part["_playtime_hours"].mean()) if len(part) else 0.0
+
+        if neg_rate is not None and neg_rate >= 0.45:
+            operating_move = f"先解释和安抚「{topic}」相关问题，再同步修复节奏或补偿安排。"
+            sample_copy = f"我们看到最近关于「{topic}」的反馈比较集中，团队会优先同步处理进展。"
+            priority = "高"
+        elif avg_play >= 100:
+            operating_move = f"把「{topic}」做成版本解读或社区讨论议题，邀请高投入玩家参与反馈。"
+            sample_copy = f"你已经体验了很长时间，我们想邀请你一起讨论「{topic}」相关的版本调整。"
+            priority = "中"
+        else:
+            operating_move = f"围绕「{topic}」设计轻量任务，给玩家一个继续体验的理由。"
+            sample_copy = f"围绕「{topic}」，我们准备了一个轻量挑战，完成后可以解锁下一阶段奖励。"
+            priority = "中"
+
+        cards.append({
+            "segment": segment,
+            "sample_size": int(len(part)),
+            "negative_rate": neg_rate,
+            "top_topic": topic,
+            "avg_playtime_hours": round(avg_play, 1),
+            "priority": priority,
+            "goal": defaults["goal"],
+            "content_direction": defaults["content_direction"],
+            "tone": defaults["tone"],
+            "operating_move": operating_move,
+            "sample_copy": sample_copy,
+            "audit_note": "发布前必须由运营确认是否符合当前版本内容；关键词归类主题建议抽样复核。",
+        })
+
+    order = {"高": 0, "中": 1, "低": 2}
+    return sorted(cards, key=lambda x: (order.get(str(x["priority"]), 9), -int(x["sample_size"])))
+
+
+def build_analysis_package(df: pd.DataFrame) -> Dict[str, object]:
+    """One-stop backend package for frontend pages, exports, and demos."""
+    readiness = build_product_readiness(df)
+    package: Dict[str, object] = {
+        "summary": readiness["summary"],
+        "quality": readiness["quality"],
+        "gates": readiness["gates"],
+        "field_status": readiness["field_status"],
+        "next_steps": readiness["next_steps"],
+        "actions": evidence_backed_actions(df),
+        "campaign_cards": campaign_strategy_cards(df),
+        "competitors": competitor_summary(df).to_dict("records"),
+    }
+    topics = normalized_topic_series(df)
+    if topics is not None:
+        package["top_topics"] = topics.value_counts().head(10).to_dict()
+    sentiment = canonical_sentiment_series(df)
+    if sentiment is not None:
+        package["sentiment_counts"] = sentiment.value_counts().to_dict()
+    return package

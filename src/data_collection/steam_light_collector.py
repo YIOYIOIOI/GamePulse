@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import pandas as pd
 import requests
 
@@ -107,3 +107,59 @@ def save_collected_reviews(df: pd.DataFrame, game_name: str, output_dir: str = "
     output.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output, index=False, encoding="utf-8-sig")
     return output
+
+
+
+def safe_fetch_steam_reviews(
+    app_id: int,
+    game_name: str,
+    max_reviews: int = 1000,
+    language: str = "all",
+    review_type: str = "all",
+) -> Tuple[pd.DataFrame, Dict[str, object]]:
+    """Fetch Steam reviews and return a frontend-friendly status object.
+
+    This wrapper prevents the product UI from crashing on transient network,
+    SSL, region, or Steam throttling errors. The caller can show status["message"]
+    and decide whether to retry.
+    """
+    status: Dict[str, object] = {
+        "ok": False,
+        "app_id": app_id,
+        "game_name": game_name,
+        "requested_reviews": max_reviews,
+        "language": language,
+        "review_type": review_type,
+        "message": "",
+        "rows": 0,
+    }
+    try:
+        df = fetch_steam_reviews(
+            app_id=app_id,
+            game_name=game_name,
+            max_reviews=max_reviews,
+            language=language,
+            review_type=review_type,
+        )
+    except requests.RequestException as exc:
+        status["message"] = f"Steam 接口请求失败：{exc.__class__.__name__}"
+        status["error_detail"] = str(exc)
+        return pd.DataFrame(), status
+    except Exception as exc:  # defensive wrapper for UI stability
+        status["message"] = f"采集失败：{exc.__class__.__name__}"
+        status["error_detail"] = str(exc)
+        return pd.DataFrame(), status
+
+    status["rows"] = int(len(df))
+    if df.empty:
+        status["message"] = "没有采集到有效评论。请检查 App ID、语言、评论类型或稍后重试。"
+        return df, status
+
+    status["ok"] = True
+    status["message"] = f"已采集 {len(df):,} 条有效评论。"
+    if "timestamp_created" in df.columns and len(df):
+        status["date_min"] = str(pd.to_datetime(df["timestamp_created"], errors="coerce").min())
+        status["date_max"] = str(pd.to_datetime(df["timestamp_created"], errors="coerce").max())
+    if "sentiment" in df.columns:
+        status["sentiment_counts"] = df["sentiment"].value_counts().to_dict()
+    return df, status

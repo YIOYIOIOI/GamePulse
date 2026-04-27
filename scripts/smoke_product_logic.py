@@ -16,7 +16,9 @@ sys.path.insert(0, str(ROOT))
 
 from src.analysis.product_metrics import (  # noqa: E402
     build_lifecycle_proxy,
+    build_analysis_package,
     build_product_readiness,
+    campaign_strategy_cards,
     competitor_summary,
     evaluate_data_quality,
     evidence_backed_actions,
@@ -58,6 +60,14 @@ def main() -> None:
     readiness = build_product_readiness(df)
     assert readiness["gates"]["workspace"]["enabled"]
     assert readiness["gates"]["competitors"]["enabled"]
+
+    cards = campaign_strategy_cards(df)
+    assert cards
+    assert all({"segment", "sample_size", "top_topic", "operating_move", "sample_copy", "audit_note"}.issubset(c) for c in cards)
+
+    package = build_analysis_package(df)
+    for key in ["summary", "quality", "gates", "actions", "campaign_cards", "competitors"]:
+        assert key in package
 
     print("product_logic_smoke=ok")
     print(f"rows={len(df)} games={q.games_count} topics={topics.nunique()} actions={len(actions)}")
