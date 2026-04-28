@@ -150,7 +150,7 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
         {data.length > 0 && (
           <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            当前工作数据集已本地缓存：{data.length.toLocaleString()} 条{cacheInfo.updatedAt ? ` · ${new Date(cacheInfo.updatedAt).toLocaleString()}` : ''}
+            当前工作数据集已保存到本地数据库：{data.length.toLocaleString()} 条{cacheInfo.updatedAt ? ` · ${new Date(cacheInfo.updatedAt).toLocaleString()}` : ''}
           </div>
         )}
       </div>
@@ -171,14 +171,15 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">当前工作数据集</h2>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">下次打开页面会自动恢复这批数据，无需重新采集。</p>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">下次打开页面会从本地数据库自动恢复这批数据，无需重新采集。</p>
             </div>
             <button onClick={clearData} className="px-3 py-2 rounded-lg text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">清空本地数据</button>
           </div>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 p-3"><div className="text-zinc-400 text-xs">评论数</div><div className="font-mono text-zinc-900 dark:text-zinc-100">{status.totalRecords.toLocaleString()}</div></div>
             <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 p-3"><div className="text-zinc-400 text-xs">游戏数</div><div className="font-mono text-zinc-900 dark:text-zinc-100">{status.gamesCount}</div></div>
-            <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 p-3 md:col-span-2"><div className="text-zinc-400 text-xs">来源</div><div className="truncate text-zinc-900 dark:text-zinc-100">{status.dataSources.join(' / ') || '本地缓存'}</div></div>
+            <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 p-3"><div className="text-zinc-400 text-xs">存储</div><div className="text-zinc-900 dark:text-zinc-100">本地数据库</div></div>
+            <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 p-3"><div className="text-zinc-400 text-xs">来源</div><div className="truncate text-zinc-900 dark:text-zinc-100">{status.dataSources.join(' / ') || '本地缓存'}</div></div>
           </div>
         </div>
       )}
