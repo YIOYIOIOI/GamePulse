@@ -243,6 +243,28 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                )}
              </div>
 
+             <div>
+               <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">采集模式</label>
+               <div className="grid grid-cols-2 gap-3">
+                 <button
+                   type="button"
+                   onClick={() => setSteamConfig({ ...steamConfig, collectionMode: 'count' })}
+                   className={clsx("rounded-xl border px-3 py-2 text-sm text-left cursor-pointer transition-colors", steamConfig.collectionMode === 'count' ? "border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/40")}
+                 >
+                   <div className="font-semibold">按数量采集</div>
+                   <div className="text-xs opacity-70 mt-0.5">抓最近排序的前 N 条</div>
+                 </button>
+                 <button
+                   type="button"
+                   onClick={() => setSteamConfig({ ...steamConfig, collectionMode: 'recentDays' })}
+                   className={clsx("rounded-xl border px-3 py-2 text-sm text-left cursor-pointer transition-colors", steamConfig.collectionMode === 'recentDays' ? "border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/40")}
+                 >
+                   <div className="font-semibold">采集最近 N 天</div>
+                   <div className="text-xs opacity-70 mt-0.5">持续翻页直到覆盖时间窗口</div>
+                 </button>
+               </div>
+             </div>
+
              <div className="flex gap-4">
                <div className="w-1/3">
                  <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5">App ID</label>
