@@ -32,7 +32,7 @@ export function HealthCheck() {
   let downgradeReason = '';
   if (sampleSize < 300) downgradeReason = '样本量 < 300：波动较大，仅建议做描述性观察。';
   else if (sampleSize < 1000) downgradeReason = '样本量 < 1000：置信度中等，结论需保守。';
-  if (timeSpanDays < 14) downgradeReason += ' Time span < 14 天: No trend analysis.';
+  if (timeSpanDays < 14) downgradeReason += `${downgradeReason ? '；' : ''}时间跨度 < 14 天：仅做截面分析，不输出趋势判断。`;
 
   const FieldStatus = ({ ratio, name }: { ratio: number, name: string }) => {
     const isGood = ratio > 0.8;
@@ -89,7 +89,7 @@ export function HealthCheck() {
                        style={{ width: `${Math.min(100, (timeSpanDays/30)*100)}%` }}
                       />
                    </Progress.Root>
-                   <div className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">Optimal: &gt; 14 天 for trends</div>
+                   <div className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">建议：&gt; 14 天后再输出趋势判断</div>
                 </div>
              </div>
           </div>
@@ -116,7 +116,7 @@ export function HealthCheck() {
             </div>
           )}
 
-          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">Platform Capabilities</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">当前可支持的分析能力</h2>
 
           <div className="space-y-4">
             {capabilities.map(cap => (
@@ -136,8 +136,8 @@ export function HealthCheck() {
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-1">
                     {!cap.supported ?
-                      `不可用。需要更高字段填充率：: ${cap.deps.join(', ')}` :
-                      `可支持 based on current data quality.`}
+                      `暂不可用。需要补齐字段或增加数据：${cap.deps.join(', ')}` :
+                      `当前数据质量可支持。`}
                   </p>
                 </div>
               </div>
