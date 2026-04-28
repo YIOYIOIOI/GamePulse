@@ -49,3 +49,25 @@ In PowerShell, pass Python code via a here-string variable and `python -c $scrip
 - Reproducible: yes
 - Related Files: README.md
 ---
+
+## [ERR-20260428-005] powershell_pipeline_after_foreach_scriptblock
+
+**Logged**: 2026-04-28T14:06:00+08:00
+**Priority**: low
+**Status**: pending
+**Area**: infra
+
+### Summary
+Attempted to pipe directly after a PowerShell `foreach` statement block, producing `An empty pipe element is not allowed`.
+
+### Error
+```text
+An empty pipe element is not allowed.
+```
+
+### Suggested Fix
+Collect objects into an array variable first, then pipe the array to `Format-Table`, or use `ForEach-Object` in a pipeline.
+
+### Metadata
+- Reproducible: yes
+---
