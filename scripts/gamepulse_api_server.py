@@ -142,6 +142,7 @@ class Handler(BaseHTTPRequestHandler):
                 max_reviews=int(payload.get("count") or payload.get("max_reviews") or 1000),
                 language=str(payload.get("language") or "all"),
                 review_type=str(payload.get("reviewType") or payload.get("review_type") or "all"),
+                recent_days=int(payload.get("recentDays") or payload.get("recent_days") or 0) or None,
             )
             self._send({"status": status, "reviews": df.to_dict("records")}, status=200 if status.get("ok") else 502)
             return
@@ -201,6 +202,7 @@ class Handler(BaseHTTPRequestHandler):
         count = int(payload.get("count") or payload.get("max_reviews") or 1000)
         language = str(payload.get("language") or "all")
         review_type = str(payload.get("reviewType") or payload.get("review_type") or "all")
+        recent_days = int(payload.get("recentDays") or payload.get("recent_days") or 0) or None
         if app_id <= 0:
             self._event({"done": True, "ok": False, "percent": 100, "message": "App ID 无效。", "error": "App ID 无效。"})
             return
@@ -212,16 +214,17 @@ class Handler(BaseHTTPRequestHandler):
                 max_reviews=count,
                 language=language,
                 review_type=review_type,
+                recent_days=recent_days,
                 progress_callback=lambda info: self._event({
                     "stage": "collect",
-                    "percent": min(88, 5 + int((info.get("collected", 0) / max(1, count)) * 80)),
+                    "percent": min(88, 5 + int((info.get("collected", 0) / max(1, count)) * 80)) if not recent_days else (92 if info.get("window_complete") else min(88, 8 + int((info.get("collected", 0) / max(1, count)) * 55))),
                     "rows": info.get("collected", 0),
-                    "message": f"已采集 {info.get('collected', 0)} / {count} 条评论。",
+                    "message": (f"已采集最近 {recent_days} 天内 {info.get('collected', 0)} 条评论，继续向更早评论翻页。" if recent_days and not info.get("window_complete") else (f"最近 {recent_days} 天窗口已覆盖，共 {info.get('collected', 0)} 条评论。" if recent_days else f"已采集 {info.get('collected', 0)} / {count} 条评论。")),
                 }),
             )
             self._event({"stage": "normalize", "percent": 92, "rows": int(len(df)), "message": "正在标准化字段并去重。"})
             time.sleep(0.05)
-            status = {"ok": not df.empty, "rows": int(len(df)), "message": f"已采集 {len(df):,} 条有效评论。" if not df.empty else "没有采集到有效评论。"}
+            status = {"ok": not df.empty, "rows": int(len(df)), "recent_days": recent_days, "message": (f"已采集最近 {recent_days} 天内 {len(df):,} 条有效评论。" if recent_days and not df.empty else (f"已采集 {len(df):,} 条有效评论。" if not df.empty else "没有采集到有效评论。"))}
             self._event({"done": True, "ok": not df.empty, "percent": 100, "rows": int(len(df)), "status": status, "reviews": df.to_dict("records"), "message": status["message"]})
         except requests.RequestException as exc:
             self._event({"done": True, "ok": False, "percent": 100, "message": f"Steam 接口请求失败：{exc.__class__.__name__}", "error": str(exc)})

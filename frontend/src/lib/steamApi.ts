@@ -4,6 +4,8 @@ export interface SteamFetchOptions {
   appId: string;
   gameName: string;
   count: number;
+  recentDays?: number;
+  collectionMode?: 'count' | 'recentDays';
   language?: string;
   reviewType?: string;
 }
@@ -54,6 +56,7 @@ export async function fetchSteamReviews(options: SteamFetchOptions) {
       appId: options.appId,
       gameName: options.gameName,
       count: options.count,
+      recentDays: options.collectionMode === 'recentDays' ? options.recentDays : undefined,
       language: options.language || 'all',
       reviewType: options.reviewType || 'all',
     }),
@@ -71,6 +74,7 @@ export async function fetchSteamReviewsWithProgress(options: SteamFetchOptions, 
       appId: options.appId,
       gameName: options.gameName,
       count: options.count,
+      recentDays: options.collectionMode === 'recentDays' ? options.recentDays : undefined,
       language: options.language || 'all',
       reviewType: options.reviewType || 'all',
     }, onEvent);

@@ -26,6 +26,8 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
     customName: '',
     appId: '570',
     count: 300,
+    collectionMode: 'count' as 'count' | 'recentDays',
+    recentDays: 14,
     reviewType: 'all'
   });
 
@@ -251,27 +253,57 @@ export function DataCenter({ onChangeView }: { onChangeView: (v: string) => void
                  />
                </div>
                <div className="flex-1">
-                 <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5 flex justify-between">
-                   <span>采集数量</span>
-                   <span className="font-mono">{steamConfig.count}</span>
-                 </label>
-                 <div className="flex items-center gap-3">
-                   <input
-                     type="range"
-                     min="100"
-                     max="5000"
-                     step="100"
-                     className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-orange-600"
-                     value={steamConfig.count}
-                     onChange={e => setSteamConfig({...steamConfig, count: Number(e.target.value)})}
-                   />
-                   <input
-                     type="number"
-                     className="w-20 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-2 py-1 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors"
-                     value={steamConfig.count}
-                     onChange={e => setSteamConfig({...steamConfig, count: Number(e.target.value)})}
-                   />
-                 </div>
+                 {steamConfig.collectionMode === 'recentDays' ? (
+                   <>
+                     <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5 flex justify-between">
+                       <span>最近天数</span>
+                       <span className="font-mono">{steamConfig.recentDays} 天</span>
+                     </label>
+                     <div className="flex items-center gap-3">
+                       <input
+                         type="range"
+                         min="1"
+                         max="90"
+                         step="1"
+                         className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                         value={steamConfig.recentDays}
+                         onChange={e => setSteamConfig({...steamConfig, recentDays: Number(e.target.value)})}
+                       />
+                       <input
+                         type="number"
+                         min="1"
+                         className="w-20 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-2 py-1 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors"
+                         value={steamConfig.recentDays}
+                         onChange={e => setSteamConfig({...steamConfig, recentDays: Number(e.target.value)})}
+                       />
+                     </div>
+                     <p className="mt-1.5 text-xs text-zinc-400">会从最新评论开始持续翻页，直到遇到早于该时间窗口的评论。</p>
+                   </>
+                 ) : (
+                   <>
+                     <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wider mb-1.5 flex justify-between">
+                       <span>采集数量</span>
+                       <span className="font-mono">{steamConfig.count}</span>
+                     </label>
+                     <div className="flex items-center gap-3">
+                       <input
+                         type="range"
+                         min="100"
+                         max="5000"
+                         step="100"
+                         className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                         value={steamConfig.count}
+                         onChange={e => setSteamConfig({...steamConfig, count: Number(e.target.value)})}
+                       />
+                       <input
+                         type="number"
+                         className="w-20 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-2 py-1 text-sm font-mono focus:outline-none focus:border-orange-500 transition-colors"
+                         value={steamConfig.count}
+                         onChange={e => setSteamConfig({...steamConfig, count: Number(e.target.value)})}
+                       />
+                     </div>
+                   </>
+                 )}
                </div>
              </div>
              <div>

@@ -129,12 +129,18 @@ def fetch_steam_reviews(
     delay_seconds: float = 0.6,
     timeout: int = 30,
     progress_callback=None,
+    recent_days: int | None = None,
+    safety_max_reviews: int = 50000,
 ) -> pd.DataFrame:
     reviews: List[Dict] = []
     cursor = "*"
     session = requests.Session()
+    cutoff_ts = None
+    if recent_days and recent_days > 0:
+        cutoff_ts = int(time.time() - recent_days * 86400)
+    target_limit = safety_max_reviews if cutoff_ts else max_reviews
 
-    while len(reviews) < max_reviews:
+    while len(reviews) < target_limit:
         url = f"https://store.steampowered.com/appreviews/{app_id}"
         params = {
             "json": 1,
@@ -143,7 +149,7 @@ def fetch_steam_reviews(
             "filter": "recent",
             "review_type": review_type,
             "purchase_type": "all",
-            "num_per_page": min(100, max_reviews - len(reviews)),
+            "num_per_page": min(100, target_limit - len(reviews)),
         }
         last_error = None
         for attempt in range(3):
@@ -160,9 +166,29 @@ def fetch_steam_reviews(
         batch = payload.get("reviews", [])
         if not batch:
             break
-        reviews.extend(batch)
+        stop_for_window = False
+        kept_batch = []
+        for item in batch:
+            created = int(item.get("timestamp_created", 0) or 0)
+            if cutoff_ts and created and created < cutoff_ts:
+                stop_for_window = True
+                continue
+            kept_batch.append(item)
+        reviews.extend(kept_batch)
         if progress_callback:
-            progress_callback({"collected": len(reviews), "target": max_reviews, "batch_size": len(batch)})
+            oldest_ts = min((int(r.get("timestamp_created", 0) or 0) for r in reviews), default=None)
+            newest_ts = max((int(r.get("timestamp_created", 0) or 0) for r in reviews), default=None)
+            progress_callback({
+                "collected": len(reviews),
+                "target": max_reviews,
+                "batch_size": len(kept_batch),
+                "recent_days": recent_days,
+                "window_complete": stop_for_window,
+                "oldest_ts": oldest_ts,
+                "newest_ts": newest_ts,
+            })
+        if stop_for_window:
+            break
         next_cursor = payload.get("cursor")
         if not next_cursor or next_cursor == cursor:
             break
@@ -170,7 +196,7 @@ def fetch_steam_reviews(
         time.sleep(delay_seconds)
 
     rows = []
-    for r in reviews[:max_reviews]:
+    for r in reviews[:target_limit]:
         author = r.get("author", {}) or {}
         rows.append({
             "game_name": game_name,
@@ -224,6 +250,7 @@ def safe_fetch_steam_reviews(
     max_reviews: int = 1000,
     language: str = "all",
     review_type: str = "all",
+    recent_days: int | None = None,
 ) -> Tuple[pd.DataFrame, Dict[str, object]]:
     """Fetch Steam reviews and return a frontend-friendly status object.
 
@@ -238,6 +265,7 @@ def safe_fetch_steam_reviews(
         "requested_reviews": max_reviews,
         "language": language,
         "review_type": review_type,
+        "recent_days": recent_days,
         "message": "",
         "rows": 0,
     }
@@ -248,6 +276,7 @@ def safe_fetch_steam_reviews(
             max_reviews=max_reviews,
             language=language,
             review_type=review_type,
+            recent_days=recent_days,
         )
     except requests.RequestException as exc:
         status["message"] = f"Steam 接口请求失败：{exc.__class__.__name__}"
@@ -264,7 +293,10 @@ def safe_fetch_steam_reviews(
         return df, status
 
     status["ok"] = True
-    status["message"] = f"已采集 {len(df):,} 条有效评论。"
+    if recent_days and recent_days > 0:
+        status["message"] = f"已采集最近 {recent_days} 天内 {len(df):,} 条有效评论。"
+    else:
+        status["message"] = f"已采集 {len(df):,} 条有效评论。"
     if "timestamp_created" in df.columns and len(df):
         status["date_min"] = str(pd.to_datetime(df["timestamp_created"], errors="coerce").min())
         status["date_max"] = str(pd.to_datetime(df["timestamp_created"], errors="coerce").max())
