@@ -26,3 +26,26 @@ For localization, never perform unbounded global English-to-Chinese replacements
 - Symptom: PowerShell returned `rg: The term 'rg' is not recognized...`.
 - Fix: Use PowerShell `Get-ChildItem ... | Select-String` for portable local text scans unless tool availability has been verified.
 - Lesson: On this machine, do not assume Unix/dev convenience tools are installed; prefer bundled/known tools or PowerShell-native equivalents.
+
+## [ERR-20260428-004] powershell_bash_heredoc
+
+**Logged**: 2026-04-28T14:02:00+08:00
+**Priority**: low
+**Status**: pending
+**Area**: infra
+
+### Summary
+Used Bash-style heredoc redirection (`python - <<'PY'`) inside PowerShell, causing a parser error.
+
+### Error
+```text
+Missing file specification after redirection operator.
+```
+
+### Suggested Fix
+In PowerShell, pass Python code via a here-string variable and `python -c $script`, or use a temporary `.py` file.
+
+### Metadata
+- Reproducible: yes
+- Related Files: README.md
+---
