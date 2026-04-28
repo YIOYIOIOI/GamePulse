@@ -51,14 +51,10 @@ def _json_default(obj):
 
 
 def _search_attempts(query: str):
-    alias_queries = {
-        "永劫无间": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
-        "永劫": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
-        "守望": ["守望", "守望先锋", "Overwatch", "Overwatch 2"],
-        "守望先锋": ["守望先锋", "守望", "Overwatch", "Overwatch 2"],
-    }
-    queries = alias_queries.get((query or "").strip(), [(query or "").strip()])
-    locales = [("US", "english"), ("CN", "schinese"), ("TW", "tchinese"), ("JP", "japanese")]
+    # Keep first search fast and predictable: no alias expansion.
+    # Only merge Mainland China Simplified Chinese + US English.
+    queries = [(query or "").strip()]
+    locales = [("CN", "schinese"), ("US", "english")]
     seen = set()
     attempts = []
     for q in queries:

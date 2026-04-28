@@ -63,15 +63,12 @@ def search_steam_apps(query: str, limit: int = 10, country: str = "US", language
         status["message"] = "请输入游戏名称。"
         return [], status
 
-    alias_queries = {
-        "永劫无间": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
-        "永劫": ["永劫无间", "NARAKA", "NARAKA BLADEPOINT", "bladepoint"],
-        "守望": ["守望", "守望先锋", "Overwatch", "Overwatch 2"],
-        "守望先锋": ["守望先锋", "守望", "Overwatch", "Overwatch 2"],
-    }
-    queries = alias_queries.get(query, [query])
+    # Keep first search fast and predictable: do not expand aliases.
+    # Query only the two high-value channels requested by the user:
+    # Mainland China Simplified Chinese + US English.
+    queries = [query]
     locale_attempts = []
-    for cc, lang in [(country, language), ("CN", "schinese"), ("US", "english"), ("TW", "tchinese"), ("JP", "japanese")]:
+    for cc, lang in [("CN", "schinese"), ("US", "english")]:
         if (cc, lang) not in locale_attempts:
             locale_attempts.append((cc, lang))
 
