@@ -90,13 +90,33 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # quieter console
         print("[gamepulse-api] " + fmt % args)
 
+    def _cors_origin(self) -> str | None:
+        """只回显本机来源的 CORS。
+
+        之前是 Access-Control-Allow-Origin: *——本服务监听 localhost，任意网页
+        都能对 http://127.0.0.1:8765 发跨域 POST 并读取响应（含本地数据集分析
+        结果）。现在仅允许 localhost/127.0.0.1 任意端口（本地前端 dev server）。
+        """
+        origin = self.headers.get("Origin", "")
+        import re
+
+        if re.match(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", origin):
+            return origin
+        return None
+
+    def _send_cors_headers(self):
+        origin = self._cors_origin()
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
     def _send(self, payload, status=200):
         body = json.dumps(payload, ensure_ascii=False, default=_json_default).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self._send_cors_headers()
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -105,9 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self._send_cors_headers()
         self.end_headers()
 
     def _event(self, payload):
@@ -117,10 +135,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._send({"ok": True})
 
+    MAX_BODY_BYTES = 100 * 1024 * 1024  # 100MB：十万级评论 JSON 上限，防误传超大载荷打爆内存
+
     def _read_json(self):
         length = int(self.headers.get("Content-Length", "0") or "0")
         if length <= 0:
             return {}
+        if length > self.MAX_BODY_BYTES:
+            raise ValueError(f"请求体 {length} 字节超过上限 {self.MAX_BODY_BYTES}")
         raw = self.rfile.read(length).decode("utf-8")
         return json.loads(raw or "{}")
 
