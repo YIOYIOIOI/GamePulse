@@ -20,16 +20,27 @@ logger = logging.getLogger(__name__)
 class StrategyGenerator:
     """运营策略生成器"""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, client=None):
         self.config = config
-        self.provider = config.get('llm', {}).get('provider', 'openai')
+        # 默认走 OpenAI 兼容 REST（requests 直调，支持 OpenAI/Ark/DeepSeek 等任意兼容网关）
+        self.provider = config.get('llm', {}).get('provider', 'openai_compatible')
 
-        # 初始化 LLM 客户端
-        self._init_llm_client()
+        if client is not None:
+            # 依赖注入：测试可传 MockLLMClient，离线验证整条链路
+            self.client = client
+            self.model = getattr(client, 'model', 'injected')
+        else:
+            self._init_llm_client()
 
     def _init_llm_client(self):
         """初始化 LLM 客户端"""
-        if self.provider == 'openai':
+        if self.provider == 'openai_compatible':
+            from src.ai_modules.llm_client import from_env
+
+            self.client = from_env(self.config)
+            self.model = getattr(self.client, 'model', None)
+
+        elif self.provider == 'openai':
             try:
                 import openai
             except ImportError:
@@ -224,6 +235,14 @@ class StrategyGenerator:
 
         temperature = self.config.get('llm', {}).get(self.provider, {}).get('temperature', 0.7)
         max_tokens = self.config.get('llm', {}).get(self.provider, {}).get('max_tokens', 3000)
+
+        if self.provider == 'openai_compatible' or hasattr(self.client, 'chat'):
+            return self.client.chat(
+                user=prompt,
+                system="你是一位资深的游戏运营策略专家。",
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
 
         if self.provider == 'openai':
             response = self.client.chat.completions.create(
