@@ -27,9 +27,10 @@
 | KMeans 分层 | 多特征（时长/获赞/评论长度/活跃度）+ 轮廓系数自动选 k，替代单维时长切分；发现"高影响力评论者"簇 | `src/analysis/segmentation/player_segmentation.py` |
 | LLM 链路 | OpenAI 兼容 REST 客户端（requests 直调，支持 OpenAI/火山方舟 Ark），环境变量配置即激活，含离线 mock | `src/ai_modules/llm_client.py` |
 | 引擎 API 化 | 分析引擎经本地 API 暴露（/api/analyze、/api/analysis/segments、/api/analysis/sentiment-eval），前端优先调引擎、失败降级本地计算——单一事实源 | `scripts/gamepulse_api_server.py` + `frontend/src/lib/analysisApi.ts` |
-| **统一管线** | CLI 与 API 曾是两条互不为超集的链路（main.py 无语言过滤/评测；API 不跑模型）。现合并为 `src/analysis/pipeline.py` 单一事实源：语言归一 → 情绪 → 弱标签评测 → 语言感知主题（NPMI/多样性/NMI 诊断）→ KMeans 分层 → 质量门槛。`main.py --mode analyze` 走完整路径，API `/api/analyze` 走轻量路径（with_models=False）。旧 Streamlit dashboard 已移除 | `src/analysis/pipeline.py` + `tests/test_pipeline.py` |
-| 测试与 CI | 12 项离线 pytest（语言/评测/分层/指标/LLM mock）+ GitHub Actions（后端测试 + 前端 typecheck/build） | `tests/` + `.github/workflows/ci.yml` |
-- 👥 **玩家分群分析**：基于游戏时长的多维度玩家画像
+| **统一管线** | CLI 与 API 曾是两条互不为超集的链路（main.py 无语言过滤/评测；API 不跑模型）。现合并为 `src/analysis/pipeline.py` 单一事实源：语言归一 → 情绪 → 弱标签评测 → 语言感知主题（NPMI/多样性/NMI 诊断）→ KMeans 分层 → 质量门槛。`main.py --mode analyze` 走完整路径；API `/api/analyze` 分两档——light（默认，秒回）与 full（先跑与 CLI 相同的 DataCleaner 再跑完整模型管线）。旧 Streamlit dashboard 已移除 | `src/analysis/pipeline.py` + `tests/test_pipeline.py` |
+| **前端全面引擎化** | 工作台/健康检查/反馈分析/玩家分层/触达策略/竞品分析六个页面全部引擎优先：DataProvider 在数据集变化后自动拉取 /api/analyze 分析包入 store，各页汇总结论消费引擎口径（页面标注口径来源），本地 TS 公式仅作无引擎降级；分层页消费 KMeans 行级标签 | `frontend/src/lib/useDataStore.tsx` + 各 view |
+| 测试与 CI | 18 项离线 pytest（语言/评测/分层/指标/LLM mock/统一管线/时长单位契约回归）+ GitHub Actions（后端测试 + 前端 typecheck/build） | `tests/` + `.github/workflows/ci.yml` |
+- 👥 **玩家分群分析**：KMeans 多特征聚类（时长/获赞/评论长度，轮廓系数自动选 k），前端消费引擎行级标签
 - 📈 **产品级运营控制台**：React/Vite 前端 + 本地 Python API（旧 Streamlit 版已移除）
 - 🧪 **数据可信度门槛**：样本不足或字段缺失时自动降级，避免假结论
 - 🎯 **生命周期代理分析**：基于公开评论和游玩时长构建价值潜力/流失风险代理指标
@@ -91,7 +92,8 @@ npm run dev -- --port 3010 --host 127.0.0.1
    - 可选“模型辅助分析”进一步细分主题。
 
 5. **玩家分层**
-   - 基于公开可得的游玩时长做生命周期 proxy：新手玩家、普通玩家、核心玩家。
+   - 引擎可用时：Python KMeans 多特征聚类的行级标签（与批处理报告同一口径）。
+   - 引擎不可用时：本地时长阈值降级（<10h/10-100h/>100h），页面会标注当前口径。
    - 后续接入公司内部数据时，可替换为真实注册天数、活跃、付费和留存特征。
 
 6. **触达策略**

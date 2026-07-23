@@ -3,8 +3,6 @@
 # Steam API Configuration
 steam:
   api_key: ""  # 可选，留空将使用公开API
-  base_url: "https://store.steampowered.com"
-  review_url: "https://store.steampowered.com/appreviews/{app_id}"
   request_timeout: 60
   request_delay: 2  # 请求间隔（秒）
   max_retries: 5
@@ -32,7 +30,6 @@ data_processing:
   min_review_length: 20  # 最小评论长度（字符）
   remove_duplicates: true
   remove_spam: true
-  language_filter: ["en", "zh"]
 
 # 情绪分析配置
 sentiment_analysis:
@@ -65,31 +62,14 @@ player_segmentation:
     regular_player: [10, 100]  # 10-100 小时
     hardcore_player: [100, 999999]  # 100+ 小时
 
-# LLM 配置
+# LLM 配置（可选：摘要与策略生成。src/ai_modules/llm_client.from_env 读取本段；
+# 环境变量优先：GAMEPULSE_LLM_API_KEY / OPENAI_API_KEY / ARK_API_KEY 及
+# GAMEPULSE_LLM_BASE_URL / GAMEPULSE_LLM_MODEL。未配置时相关功能自动降级关闭）
 llm:
-  provider: "openai"  # openai/anthropic
-
-  # OpenAI 配置
-  openai:
-    api_key: ""  # 在 .env 文件中设置
-    model: "gpt-4"
-    temperature: 0.7
-    max_tokens: 2000
-
-  # Anthropic 配置
-  anthropic:
-    api_key: ""  # 在 .env 文件中设置
-    model: "claude-3-opus-20240229"
-    temperature: 0.7
-    max_tokens: 2000
-
-# 分析输出配置
-output:
-  save_format: ["csv", "json", "excel"]
-  report_language: "zh"  # zh/en
-  generate_plots: true
-  plot_format: "png"
-  dpi: 300
+  openai_compatible:
+    api_key: ""            # 建议留空，用环境变量
+    base_url: ""           # 留空用默认；火山方舟填 https://ark.cn-beijing.volces.com/api/v3
+    model: "gpt-4o-mini"
 
 # 日志配置
 logging:
