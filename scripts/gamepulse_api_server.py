@@ -36,6 +36,22 @@ from src.data_collection.steam_light_collector import (  # noqa: E402
 )
 
 
+_ANALYSIS_CONFIG: dict | None = None
+
+
+def _load_analysis_config() -> dict:
+    """懒加载 config/config.yaml（full 模式需要情绪/主题配置）。失败时退回空配置（各模块有默认值）。"""
+    global _ANALYSIS_CONFIG
+    if _ANALYSIS_CONFIG is None:
+        try:
+            import yaml
+
+            _ANALYSIS_CONFIG = yaml.safe_load((ROOT / "config" / "config.yaml").read_text(encoding="utf-8")) or {}
+        except Exception:
+            _ANALYSIS_CONFIG = {}
+    return _ANALYSIS_CONFIG
+
+
 def _json_default(obj):
     if isinstance(obj, (datetime, pd.Timestamp)):
         return obj.isoformat()
@@ -151,19 +167,39 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/analyze":
-            # 走统一管线的轻量路径（不跑情绪/主题重模型，保持同步请求响应速度）：
-            # 语言归一 → （已有情绪列时）弱标签评测 → KMeans 分层 → 质量门槛分析包。
-            # 与 main.py 完整管线共用 src/analysis/pipeline.py，保证口径一致。
+            # 统一管线（src/analysis/pipeline.py，与 main.py 同一事实源），两档模式：
+            #   light（默认）：语言归一 → 已有情绪列的弱标签评测 → KMeans 分层 → 质量包。
+            #                 不跑情绪/主题重模型，保证同步请求秒回。
+            #   full：先走 DataCleaner（与 CLI 相同的去重/去短评/spam/清洗），再跑完整
+            #         管线（DistilBERT 或规则 fallback + 语言感知 LDA + NPMI/NMI 指标）。
+            #         同步阻塞、可能数十秒，适合中小数据集或演示；大批量请走 CLI。
             rows = payload.get("reviews") or payload.get("data") or []
+            mode = str(payload.get("mode") or "light").lower()
             df = pd.DataFrame(rows)
-            result = run_full(df, config={}, with_models=False)
-            body = {"ok": True, "package": result.quality_package}
+            with_models = mode == "full"
+            config = _load_analysis_config() if with_models else {}
+            if with_models and "review_text" in df.columns and "review_text_clean" not in df.columns:
+                from src.data_processing.data_cleaner import DataCleaner
+
+                cleaner = DataCleaner(config)
+                df = cleaner.add_features(cleaner.clean(df))
+            result = run_full(df, config, with_models=with_models)
+            body = {"ok": True, "mode": mode, "package": result.quality_package,
+                    "rows_analyzed": int(len(result.df))}
             if "lang_code" in result.df.columns:
                 body["language_distribution"] = language_distribution(result.df).to_dict()
             if result.sentiment_evaluation is not None:
                 body["sentiment_evaluation"] = result.sentiment_evaluation
             if result.segmentation_meta is not None:
                 body["segmentation_meta"] = result.segmentation_meta
+            if result.topics is not None:
+                body["topics"] = {str(k): v for k, v in result.topics.items()}
+            if result.topic_metrics is not None:
+                body["topic_metrics"] = result.topic_metrics
+            if result.sentiment_stats is not None:
+                stats = dict(result.sentiment_stats)
+                stats.pop("sentiment_by_type", None)  # 非 JSON 友好的中间对象
+                body["sentiment_stats"] = stats
             self._send(body)
             return
 
