@@ -119,6 +119,19 @@ def run_topics(
     elif "lang_code" not in df.columns:
         metrics["filter_skipped_reason"] = "无 language/lang_code 列"
 
+    # 小样本护栏：文档数撑不起主题建模时（LDA min_df/num_topics 约束下会直接报错），
+    # 跳过主题步骤并在 metrics 里说明，而不是让整条管线失败——API full 模式常收到小数据集
+    min_docs_for_modeling = max(
+        int(topic_cfg.get("min_df", 5)) * 4,
+        int(topic_cfg.get("num_topics", 10)) * 2,
+    )
+    if len(subset) < min_docs_for_modeling:
+        metrics["skipped_reason"] = (
+            f"文档数 {len(subset)} 过少（< {min_docs_for_modeling}），跳过主题建模"
+        )
+        logger.warning("主题建模跳过：%s", metrics["skipped_reason"])
+        return df, None, metrics
+
     analyzer = TopicAnalyzer(config)
     subset = subset.copy()
     subset, topics = analyzer.analyze_dataframe(subset, text_column=text_column)

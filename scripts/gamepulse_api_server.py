@@ -200,12 +200,16 @@ class Handler(BaseHTTPRequestHandler):
             df = pd.DataFrame(rows)
             with_models = mode == "full"
             config = _load_analysis_config() if with_models else {}
-            if with_models and "review_text" in df.columns and "review_text_clean" not in df.columns:
-                from src.data_processing.data_cleaner import DataCleaner
+            try:
+                if with_models and "review_text" in df.columns and "review_text_clean" not in df.columns:
+                    from src.data_processing.data_cleaner import DataCleaner
 
-                cleaner = DataCleaner(config)
-                df = cleaner.add_features(cleaner.clean(df))
-            result = run_full(df, config, with_models=with_models)
+                    cleaner = DataCleaner(config)
+                    df = cleaner.add_features(cleaner.clean(df))
+                result = run_full(df, config, with_models=with_models)
+            except Exception as exc:  # 业务异常返回结构化 500，不能炸掉 socket 连接
+                self._send({"ok": False, "mode": mode, "message": f"分析失败: {exc}"}, status=500)
+                return
             body = {"ok": True, "mode": mode, "package": result.quality_package,
                     "rows_analyzed": int(len(result.df))}
             if "lang_code" in result.df.columns:

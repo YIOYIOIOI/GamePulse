@@ -20,7 +20,6 @@ class DataCleaner:
         self.min_length = config.get('data_processing', {}).get('min_review_length', 20)
         self.remove_duplicates = config.get('data_processing', {}).get('remove_duplicates', True)
         self.remove_spam = config.get('data_processing', {}).get('remove_spam', True)
-        self.language_filter = config.get('data_processing', {}).get('language_filter', ['en', 'zh'])
 
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -61,12 +60,19 @@ class DataCleaner:
         return df
 
     def _remove_duplicates(self, df: pd.DataFrame) -> pd.DataFrame:
-        """删除重复评论"""
+        """删除重复评论。
+
+        列存在才按其去重：CLI 采集数据一定有 review_id，但 API full 模式
+        接的是浏览器行（CSV 上传/前端数据集），不保证有该列——曾因硬引用
+        review_id 直接 KeyError 炸掉请求。
+        """
         # 基于评论ID去重
-        df = df.drop_duplicates(subset=['review_id'], keep='first')
+        if 'review_id' in df.columns:
+            df = df.drop_duplicates(subset=['review_id'], keep='first')
 
         # 基于评论内容去重（避免内容完全相同但ID不同的情况）
-        df = df.drop_duplicates(subset=['review_text'], keep='first')
+        if 'review_text' in df.columns:
+            df = df.drop_duplicates(subset=['review_text'], keep='first')
 
         return df
 
@@ -85,7 +91,7 @@ class DataCleaner:
             r'^-{5,}',   # 连续减号
             r'(?:http|www)\.',  # 包含链接
             r'discount|促销|打折|优惠|代购',  # 广告关键词
-            r'^[^a-zA-Z\u4e00-\u9fa5]{20,}',  # 过多特殊字符
+            '^[^a-zA-Z一-龥]{20,}',  # 过多特殊字符（写成字面量汉字区间：pandas 3 Arrow 字符串的 str.contains 走 RE2 引擎，不支持 \\uXXXX 转义）
         ]
 
         spam_mask = pd.Series([False] * len(df), index=df.index)
@@ -147,24 +153,28 @@ class DataCleaner:
         # 2. 词数统计
         df['word_count'] = df['review_text_clean'].str.split().str.len()
 
-        # 3. 玩家类型（基于游戏时长）
-        df['player_type'] = pd.cut(
-            df['playtime_forever'],
-            bins=[-0.1, 10, 100, float('inf')],
-            labels=['new_player', 'regular_player', 'hardcore_player']
-        )
+        # 3. 玩家类型（基于游戏时长；单位契约：playtime_forever 为小时）
+        if 'playtime_forever' in df.columns:
+            df['player_type'] = pd.cut(
+                df['playtime_forever'],
+                bins=[-0.1, 10, 100, float('inf')],
+                labels=['new_player', 'regular_player', 'hardcore_player']
+            )
 
-        # 4. 时间特征
-        df['year'] = pd.to_datetime(df['timestamp_created']).dt.year
-        df['month'] = pd.to_datetime(df['timestamp_created']).dt.month
-        df['year_month'] = pd.to_datetime(df['timestamp_created']).dt.to_period('M')
+        # 4. 时间特征（API full 模式的浏览器行可能缺该列）
+        if 'timestamp_created' in df.columns:
+            ts = pd.to_datetime(df['timestamp_created'], errors='coerce')
+            df['year'] = ts.dt.year
+            df['month'] = ts.dt.month
+            df['year_month'] = ts.dt.to_period('M')
 
         # 5. 评论热度（基于点赞数）
-        df['review_popularity'] = pd.cut(
-            df['votes_up'],
-            bins=[-1, 0, 5, 20, float('inf')],
-            labels=['unpopular', 'normal', 'popular', 'very_popular']
-        )
+        if 'votes_up' in df.columns:
+            df['review_popularity'] = pd.cut(
+                df['votes_up'],
+                bins=[-1, 0, 5, 20, float('inf')],
+                labels=['unpopular', 'normal', 'popular', 'very_popular']
+            )
 
         return df
 
