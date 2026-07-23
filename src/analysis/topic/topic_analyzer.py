@@ -121,10 +121,14 @@ class TopicAnalyzer:
 
         # 2. 主题建模
         if self.method == 'lda':
+            # n_jobs 默认 1：Windows 上 joblib 的 -1 会为每核起子进程，
+            # 曾在默认环境触发 MemoryError / BrokenProcessPool（见 tests/test_pipeline.py 背景）。
+            # 需要并行时在 config topic_analysis.n_jobs 显式指定。
+            n_jobs = int(self.config.get('topic_analysis', {}).get('n_jobs', 1))
             self.model = LatentDirichletAllocation(
                 n_components=self.num_topics,
                 random_state=42,
-                n_jobs=-1,
+                n_jobs=n_jobs,
                 max_iter=20
             )
         elif self.method == 'nmf':

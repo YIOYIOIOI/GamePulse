@@ -55,6 +55,8 @@ topic_analysis:
   # auto = 主语言样本 >= min_docs 时只在主语言子集建模（修复"主题=语言聚类"）；off = 全量建模
   language_filter: "auto"
   min_docs_for_language_filter: 200
+  # LDA 并行进程数。默认 1：Windows 上 -1 会按核数起子进程，曾触发 MemoryError/BrokenProcessPool
+  n_jobs: 1
 
 # 玩家群体分群配置
 player_segmentation:
