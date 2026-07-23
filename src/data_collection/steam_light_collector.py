@@ -1,6 +1,6 @@
 """Lightweight Steam review collector used by the product console.
 
-This module intentionally depends only on requests + pandas so the dashboard can
+This module intentionally depends only on requests + pandas so the local API server can
 collect real Steam data even when heavyweight NLP packages (torch/transformers)
 are not installed.
 """

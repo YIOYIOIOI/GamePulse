@@ -15,10 +15,22 @@
 ### 核心能力
 
 - 🚀 **大规模数据采集**：支持10万+评论采集，速度达37-40条/秒
-- 🤖 **BERT深度学习**：基于Transformer的情绪分析，准确度90%+
-- 📊 **LDA主题建模**：无监督学习自动发现玩家关注的核心问题
+- 🤖 **BERT情绪分析 + 语言分流**：DistilBERT 仅用于英文子集（vote_up 弱标签实测一致率 70.3%）；非英文不再硬套英文模型
+- 📊 **LDA主题建模 + 双指标验收**：语言过滤消除多语言干扰，用 NPMI 连贯性 + 主题×语言 NMI 量化主题质量
+
+### 质量与评测升级（2026-07）
+
+| 升级 | 说明 | 产物 |
+|---|---|---|
+| 语言分流 | Steam 自带 language 标签归一/过滤（`src/analysis/language.py`），修复"主题=语言聚类"（旧管线 10 主题中 4 个是非英语语言簇，主题×语言 NMI=0.417） | `scripts/rerun_topics_by_language.py` → `topic_language_ablation.json` |
+| 弱标签实测 | 用 vote_up 实测情感输出一致率：整体 55.3% / 英文 70.3% / 非英文 41.1%（差 29pp，量化了英文模型硬套多语言的代价） | `scripts/evaluate_sentiment.py` → `sentiment_evaluation.json` |
+| KMeans 分层 | 多特征（时长/获赞/评论长度/活跃度）+ 轮廓系数自动选 k，替代单维时长切分；发现"高影响力评论者"簇 | `src/analysis/segmentation/player_segmentation.py` |
+| LLM 链路 | OpenAI 兼容 REST 客户端（requests 直调，支持 OpenAI/火山方舟 Ark），环境变量配置即激活，含离线 mock | `src/ai_modules/llm_client.py` |
+| 引擎 API 化 | 分析引擎经本地 API 暴露（/api/analyze、/api/analysis/segments、/api/analysis/sentiment-eval），前端优先调引擎、失败降级本地计算——单一事实源 | `scripts/gamepulse_api_server.py` + `frontend/src/lib/analysisApi.ts` |
+| **统一管线** | CLI 与 API 曾是两条互不为超集的链路（main.py 无语言过滤/评测；API 不跑模型）。现合并为 `src/analysis/pipeline.py` 单一事实源：语言归一 → 情绪 → 弱标签评测 → 语言感知主题（NPMI/多样性/NMI 诊断）→ KMeans 分层 → 质量门槛。`main.py --mode analyze` 走完整路径，API `/api/analyze` 走轻量路径（with_models=False）。旧 Streamlit dashboard 已移除 | `src/analysis/pipeline.py` + `tests/test_pipeline.py` |
+| 测试与 CI | 12 项离线 pytest（语言/评测/分层/指标/LLM mock）+ GitHub Actions（后端测试 + 前端 typecheck/build） | `tests/` + `.github/workflows/ci.yml` |
 - 👥 **玩家分群分析**：基于游戏时长的多维度玩家画像
-- 📈 **产品级运营控制台**：Streamlit + Plotly 构建 GamePulse AI Ops Console
+- 📈 **产品级运营控制台**：React/Vite 前端 + 本地 Python API（旧 Streamlit 版已移除）
 - 🧪 **数据可信度门槛**：样本不足或字段缺失时自动降级，避免假结论
 - 🎯 **生命周期代理分析**：基于公开评论和游玩时长构建价值潜力/流失风险代理指标
 - ✍️ **AI内容生产管线**：基于玩家痛点生成宣传、召回、裂变内容草案，并保留人工审核边界
@@ -138,7 +150,7 @@ npm run dev -- --port 3010 --host 127.0.0.1
 └────────────────┬────────────────────────────────┘
                  ▼
 ┌─────────────────────────────────────────────────┐
-│         可视化层（Streamlit + Plotly）            │
+│      可视化层（React/Vite + 本地 API）           │
 │   - 情绪趋势分析                                  │
 │   - 主题分布展示                                  │
 │   - 玩家洞察报告                                  │
@@ -167,18 +179,9 @@ python -m venv .venv
 .venv\\Scripts\\python.exe -m pip install -r requirements.txt
 ```
 
-3. **启动产品控制台**
-```bash
-.venv\\Scripts\\streamlit.exe run src\\visualization\\dashboard.py
-```
+3. **启动产品控制台**（React 前端 + 本地 API，见上文「GamePulse React 产品版」）
 
-控制台侧边栏支持三种数据入口：
-
-- 直接从 Steam 采集真实评论（DOTA 2 / Elden Ring / Baldur's Gate 3 / Cyberpunk 2077 / 自定义 App ID）
-- 选择本地已有分析结果
-- 上传 CSV 文件
-
-Steam 采集入口使用轻量采集器 `src/data_collection/steam_light_collector.py`，只依赖 requests + pandas，避免 dashboard 因 torch/transformers 等重依赖无法启动。
+Steam 采集入口使用轻量采集器 `src/data_collection/steam_light_collector.py`，只依赖 requests + pandas，torch/transformers 未安装时 API 服务照常可用。
 
 4. **构建真实本地竞品演示数据集**
 ```bash
@@ -234,10 +237,11 @@ python main.py --mode analyze --input data/processed/DOTA2_xxx_cleaned.csv --gam
 python main.py --mode all --game-id 570 --max-reviews 10000
 ```
 
-#### 5. 启动可视化Dashboard
+#### 5. 启动产品前端
 
 ```bash
-streamlit run src/visualization/dashboard.py
+python scripts/gamepulse_api_server.py --port 8765
+cd frontend && npm run dev
 ```
 
 ## 核心技术
@@ -248,7 +252,7 @@ streamlit run src/visualization/dashboard.py
 - 模型：DistilBERT（BERT的轻量化版本）
 - 架构：Transformer（12层编码器，768维隐藏层）
 - 参数量：6600万
-- 准确度：90%+（基于SST-2基准）
+- 一致率（vote_up 弱标签实测）：整体 55.3%，英文子集 70.3%，非英文 41.1% —— 故引入语言分流；90%+ 仅为 SST-2 公开基准数字，不代表本数据集表现
 
 **优势**：
 - 理解上下文语义（相比传统关键词匹配）
@@ -268,7 +272,7 @@ streamlit run src/visualization/dashboard.py
 **技术实现**：
 - 算法：隐含狄利克雷分配（Latent Dirichlet Allocation）
 - 类型：无监督学习
-- 向量化：TF-IDF
+- 向量化：CountVectorizer（LDA 建模在词频计数上；TF-IDF 仅用于 NMF 路径）
 
 **优势**：
 - 自动发现隐藏主题，无需人工标注
@@ -328,17 +332,20 @@ AI-Powered-GPI-OSS/
 │   ├── data_processing/
 │   │   └── data_cleaner.py        # 数据清洗与特征工程
 │   ├── analysis/
+│   │   ├── pipeline.py            # ⭐ 统一分析管线（单一事实源）
+│   │   ├── language.py            # 语言归一与过滤
+│   │   ├── evaluation.py          # vote_up 弱标签评测
 │   │   ├── sentiment/
-│   │   │   └── sentiment_analyzer.py  # BERT情绪分析
+│   │   │   └── sentiment_analyzer.py  # DistilBERT/规则 fallback 情绪
 │   │   ├── topic/
-│   │   │   └── topic_analyzer.py      # LDA主题建模
-│   │   └── player/
-│   │       └── player_segmentation.py # 玩家分群
+│   │   │   ├── topic_analyzer.py      # LDA/NMF 主题建模
+│   │   │   └── coherence.py           # NPMI/多样性/NMI 指标
+│   │   └── segmentation/
+│   │       └── player_segmentation.py # KMeans 多特征分层
 │   ├── ai_modules/
+│   │   ├── llm_client.py          # OpenAI 兼容客户端（可选）
 │   │   ├── summarizer/            # LLM评论摘要（可选）
 │   │   └── strategy/              # LLM策略生成（可选）
-│   └── visualization/
-│       └── dashboard.py           # Streamlit可视化
 ├── data/
 │   ├── raw/                       # 原始数据
 │   ├── processed/                 # 清洗后数据
@@ -360,7 +367,7 @@ AI-Powered-GPI-OSS/
 - 系统稳定性：99.5%
 
 ### AI模型性能
-- BERT准确度：90%+
+- 情绪一致率（弱标签实测）：英文 70.3% / 非英文 41.1%（见 data/results/sentiment_evaluation.json）
 - BERT推理速度：2,071条/46秒（CPU模式）
 - LDA处理速度：2,071条/6秒
 - GPU加速比：5-10x（相比CPU）
@@ -379,8 +386,7 @@ AI-Powered-GPI-OSS/
 - **NLP工具**：`gensim`, `nltk`
 
 ### 可视化
-- **Web框架**：`streamlit`
-- **图表库**：`plotly`, `matplotlib`, `seaborn`
+- **前端**：`React` / `Vite` / `TypeScript`（`frontend/`）
 
 ### 可选模块
 - **LLM集成**：`openai`, `anthropic` (用于高级摘要和策略生成)
@@ -442,7 +448,6 @@ A: 不是必须的。CPU模式下也能运行，只是速度较慢。如有NVIDI
 
 - [Hugging Face Transformers](https://github.com/huggingface/transformers) - BERT模型实现
 - [scikit-learn](https://scikit-learn.org/) - LDA主题建模
-- [Streamlit](https://streamlit.io/) - 可视化框架
 - [Steam Web API](https://steamcommunity.com/dev) - 数据来源
 
 ---
@@ -475,4 +480,4 @@ Current API wiring:
 - `POST /api/steam/reviews` collects real Steam reviews via the existing lightweight collector.
 - `POST /api/analyze` returns the existing backend analysis package.
 
-The older Streamlit dashboard remains in `src/visualization/dashboard.py` as a legacy fallback, but the intended product UI is now `frontend/`.
+The legacy Streamlit dashboard has been removed; the product UI is `frontend/` (React/Vite) backed by `scripts/gamepulse_api_server.py`, and both share the unified pipeline in `src/analysis/pipeline.py`.
