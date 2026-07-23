@@ -108,8 +108,11 @@ def playtime_hours_series(df: pd.DataFrame) -> pd.Series:
     if not play_col:
         return pd.Series(0.0, index=df.index)
     play = pd.to_numeric(df[play_col], errors="coerce").fillna(0)
-    # Steam raw API usually returns minutes. Existing light collector stores hours.
-    return play / 60 if play.quantile(0.8) > 500 else play
+    # 单位契约：本仓库采集器产出的 playtime_* 一律为小时。
+    # 旧启发式 "q80>500 视为分钟" 会把重度游戏（核心玩家常见 1000h+）误判成分钟
+    # 再除一次 60。仅当数值大到不可能是小时（q80 > 20000，约 2.3 年连续游玩）时，
+    # 才认为是用户上传的原始分钟数据并换算。
+    return play / 60 if play.quantile(0.8) > 20000 else play
 
 
 def classify_topic_from_text(text: object) -> str:

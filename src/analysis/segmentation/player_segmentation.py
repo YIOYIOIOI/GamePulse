@@ -1,6 +1,10 @@
 """
 玩家分层：多特征 KMeans 聚类
 
+单位契约：本仓库中 `playtime_forever` / `playtime_at_review` 一律为**小时**
+（两个 Steam 采集器在解析时已把 API 返回的分钟 / 60）。本模块直接按小时使用，
+不做二次换算——历史上这里重复除过一次 60，导致 120h 被判成"轻度玩家"。
+
 历史做法是单维时长三段切分（pd.cut(playtime, [10h, 100h])），实现简单但有
 两个问题：阈值是拍脑袋定的；只用时长一个维度，丢掉了社区认可度、表达强度、
 评论者活跃度等信息。
@@ -48,7 +52,7 @@ FEATURE_CANDIDATES = {
 def _fallback_playtime_cut(df: pd.DataFrame, reason: str) -> tuple[pd.DataFrame, dict]:
     """时长三段 fallback（与历史口径一致），metadata 里写明降级原因。"""
     out = df.copy()
-    hours = out.get("playtime_forever", pd.Series(0, index=out.index)).fillna(0) / 60
+    hours = out.get("playtime_forever", pd.Series(0, index=out.index)).fillna(0)  # 已是小时
     out["segment_label"] = pd.cut(
         hours, bins=[-0.1, 10, 100, float("inf")], labels=["轻度玩家", "普通玩家", "核心玩家"]
     ).astype(str)
@@ -132,7 +136,7 @@ def segment_players(
         profiles[str(label_map[cluster])] = {
             "n": int(len(group)),
             "share": round(len(group) / len(out), 4),
-            "avg_playtime_hours": round(float(group["playtime_forever"].mean()) / 60, 1),
+            "avg_playtime_hours": round(float(group["playtime_forever"].mean()), 1),
             "avg_votes_up": round(float(group["votes_up"].mean()), 2) if "votes_up" in group else None,
             "avg_review_length": round(float(group["review_length"].mean()), 1)
             if "review_length" in group
