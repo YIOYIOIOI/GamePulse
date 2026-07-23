@@ -4,8 +4,16 @@ import { AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { normalizeTopicLabel } from '../lib/dataProcessor';
 
+interface EngineCompetitorRow {
+  game_name: string;
+  records: number;
+  positive_rate: number | null;
+  negative_rate: number | null;
+  top_topic: string | null;
+}
+
 export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string) => void }) {
-  const { data, status } = useDataStore();
+  const { data, status, enginePackage } = useDataStore();
 
   if (status.gamesCount < 2) {
     return (
@@ -29,27 +37,40 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
 
   const games = Array.from(new Set(data.map(d => d.game_name)));
 
-  const gameStats = games.map(game => {
-    const gameData = data.filter(d => d.game_name === game);
-    const total = gameData.length;
-    const pos = gameData.filter(d => d.sentiment === 'positive').length;
-    const neg = gameData.filter(d => d.sentiment === 'negative').length;
+  // 口径：引擎分析包的 competitors（product_metrics.competitor_summary，与 CLI 报告一致）优先，
+  // 引擎不可用时本地行级聚合降级
+  const engineRows = (enginePackage?.competitors as EngineCompetitorRow[] | undefined) || [];
+  const engineActive = engineRows.length >= 2;
 
-    const topicCounts = gameData.reduce((acc, curr) => {
-      const t = normalizeTopicLabel(curr.topic_description) || '综合体验反馈';
-      acc[t] = (acc[t] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    const topTopic = Object.entries(topicCounts).sort((a: [string, number], b: [string, number]) => b[1] - a[1])[0]?.[0] || '-';
+  const gameStats = engineActive
+    ? engineRows.map(r => ({
+        game: r.game_name,
+        total: r.records,
+        posRate: (r.positive_rate ?? 0) * 100,
+        negRate: (r.negative_rate ?? 0) * 100,
+        topTopic: r.top_topic || '-',
+      }))
+    : games.map(game => {
+        const gameData = data.filter(d => d.game_name === game);
+        const total = gameData.length;
+        const pos = gameData.filter(d => d.sentiment === 'positive').length;
+        const neg = gameData.filter(d => d.sentiment === 'negative').length;
 
-    return {
-      game,
-      total,
-      posRate: total > 0 ? (pos / total) * 100 : 0,
-      negRate: total > 0 ? (neg / total) * 100 : 0,
-      topTopic,
-    };
-  }).sort((a, b) => b.total - a.total); // Sort by volume
+        const topicCounts = gameData.reduce((acc, curr) => {
+          const t = normalizeTopicLabel(curr.topic_description) || '综合体验反馈';
+          acc[t] = (acc[t] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        const topTopic = Object.entries(topicCounts).sort((a: [string, number], b: [string, number]) => b[1] - a[1])[0]?.[0] || '-';
+
+        return {
+          game,
+          total,
+          posRate: total > 0 ? (pos / total) * 100 : 0,
+          negRate: total > 0 ? (neg / total) * 100 : 0,
+          topTopic,
+        };
+      }).sort((a, b) => b.total - a.total); // Sort by volume
 
   // Prepare chart data
   const chartData = gameStats.map(s => ({
@@ -64,6 +85,11 @@ export function CompetitorAnalysis({ onChangeView }: { onChangeView: (v: string)
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">竞品分析</h1>
           <p className="text-zinc-500 dark:text-zinc-300">跨游戏比较玩家情绪结构与主要痛点。</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">
+            {engineActive
+              ? '口径：Python 引擎 /api/analyze（与 CLI 批处理报告同一事实源）'
+              : '口径：本地估算（分析引擎不可用时的降级路径）'}
+          </p>
         </div>
         <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50 px-3 py-1.5 rounded-lg text-xs font-mono font-medium">
           {games.length} 款游戏对比

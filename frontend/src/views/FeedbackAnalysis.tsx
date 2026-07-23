@@ -13,7 +13,7 @@ const FILTER_LABELS = {
 } as const;
 
 export function FeedbackAnalysis() {
-  const { data, replaceData } = useDataStore();
+  const { data, replaceData, enginePackage } = useDataStore();
   const [filterMode, setFilterMode] = useState<'all' | 'negative' | 'positive'>('all');
   const [llmStatus, setLlmStatus] = useState('');
   const [isClassifying, setIsClassifying] = useState(false);
@@ -21,18 +21,25 @@ export function FeedbackAnalysis() {
 
   const filteredData = data.filter(d => filterMode === 'all' ? true : d.sentiment === filterMode);
 
-  const posCount = data.filter(d => d.sentiment === 'positive').length;
-  const negCount = data.filter(d => d.sentiment === 'negative').length;
+  // 口径：口碑结构与全量高频主题优先取引擎分析包（/api/analyze，与 CLI 报告一致）；
+  // 情绪过滤后的主题钻取是行级明细视图，仍由本地聚合（引擎包只含全量 top_topics）
+  const engineCounts = enginePackage?.sentiment_counts;
+  const engineActive = !!engineCounts;
+  const posCount = engineCounts?.positive ?? data.filter(d => d.sentiment === 'positive').length;
+  const negCount = engineCounts?.negative ?? data.filter(d => d.sentiment === 'negative').length;
   const sentimentData = [
     { name: '正向', value: posCount, color: '#10b981' },
     { name: '负向', value: negCount, color: '#ef4444' },
   ].filter(d => d.value > 0);
 
-  const topicCounts = filteredData.reduce((acc, curr) => {
-    const t = normalizeTopicLabel(curr.topic_description) || '未分类反馈';
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const engineTopics = filterMode === 'all' ? enginePackage?.top_topics : undefined;
+  const topicCounts = engineTopics
+    ? engineTopics
+    : filteredData.reduce((acc, curr) => {
+        const t = normalizeTopicLabel(curr.topic_description) || '未分类反馈';
+        acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
   const topicChartData = Object.entries(topicCounts)
     .sort((a: [string, number], b: [string, number]) => b[1] - a[1])

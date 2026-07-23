@@ -67,6 +67,9 @@ export function ModelSettings() {
             <div>
               <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">模型服务连接</h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">用于连接你自己的模型接口；密钥只保存在当前浏览器本地，不写入项目后端。</p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1.5">
+                安全提示：密钥以明文存于浏览器 localStorage（单机工具的取舍）。请使用<b>可随时吊销的低额度密钥</b>，不要在共用电脑上保存；清除方式：本页清空保存，或浏览器清除站点数据。
+              </p>
             </div>
           </div>
 

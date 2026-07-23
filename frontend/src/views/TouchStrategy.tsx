@@ -6,8 +6,22 @@ import { normalizeTopicLabel } from '../lib/dataProcessor';
 import { generateStrategyWithLlm, loadLlmSettings } from '../lib/llmClient';
 import { ProgressBar, type ProgressState } from '../components/ProgressBar';
 
+interface EngineCampaignCard {
+  segment?: string;
+  sample_size?: number;
+  negative_rate?: number;
+  top_topic?: string;
+  avg_playtime_hours?: number;
+  priority?: string;
+  goal?: string;
+  content_direction?: string;
+  tone?: string;
+  operating_move?: string;
+  sample_copy?: string;
+}
+
 export function TouchStrategy() {
-  const { data } = useDataStore();
+  const { data, enginePackage } = useDataStore();
   const [llmStrategies, setLlmStrategies] = useState<Record<string, any>>({});
   const [llmStatus, setLlmStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -25,9 +39,27 @@ export function TouchStrategy() {
     );
   }
 
+  // 口径：引擎分析包的 campaign_cards（product_metrics.campaign_strategy_cards，
+  // 与 CLI 报告一致，含优先级排序）优先；引擎不可用时本地启发式降级
+  const engineCards = (enginePackage?.campaign_cards as EngineCampaignCard[] | undefined) || [];
+  const engineActive = engineCards.length > 0;
+
+  const engineStrategies = engineCards.map(c => ({
+    group: c.segment || '未知分层',
+    sampleSize: c.sample_size ?? 0,
+    negRatio: (c.negative_rate ?? 0) * 100,
+    avgPlaytime: Math.floor(c.avg_playtime_hours ?? 0),
+    topTopic: c.top_topic || '综合体验反馈',
+    goal: c.goal || '',
+    content: c.content_direction || '',
+    tone: c.tone || '',
+    draft: c.sample_copy || '',
+    advice: c.operating_move || '',
+  }));
+
   const segmentNames = ['新手玩家', '普通玩家', '核心玩家'];
 
-  const strategies = segmentNames.map(name => {
+  const localStrategies = segmentNames.map(name => {
     const group = validData.filter(d => d.player_type === name);
     if (group.length === 0) return null;
 
@@ -89,6 +121,8 @@ export function TouchStrategy() {
     };
   }).filter(Boolean);
 
+  const strategies = engineActive ? engineStrategies : localStrategies;
+
   const runLlmStrategy = async () => {
     const settings = loadLlmSettings();
     if (!settings.enabled || !settings.apiKey) {
@@ -132,6 +166,11 @@ export function TouchStrategy() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">触达策略</h1>
           <p className="text-zinc-500 dark:text-zinc-300">基于玩家分层和主题痛点，生成可复核的 CRM 沟通方案。</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">
+            {engineActive
+              ? '口径：Python 引擎策略卡（/api/analyze，与 CLI 批处理报告同一事实源）'
+              : '口径：本地启发式（分析引擎不可用时的降级路径）'}
+          </p>
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={runLlmStrategy}
