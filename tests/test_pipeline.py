@@ -128,3 +128,49 @@ def test_run_full_without_language_column_warns_not_crashes():
     assert result.topic_metrics is not None
     assert result.topic_metrics["modeled_language"] == "all"
     assert result.quality_package is not None
+
+
+def test_playtime_hours_contract_fallback_cut():
+    """回归：playtime_forever 已是小时，分层 fallback 不得再除 60。
+
+    历史 bug：双重换算导致 8h/120h/600h 全被判成轻度玩家（评审冒烟用例）。
+    """
+    from src.analysis.segmentation.player_segmentation import segment_players
+
+    df = pd.DataFrame({
+        "playtime_forever": [8, 120, 600],
+        "votes_up": [1, 5, 30],
+        "review_text": ["a" * 50, "b" * 200, "c" * 400],
+    })
+    out, meta = segment_players(df)
+    labels = out["segment_label"].tolist()
+    assert meta["method"] == "playtime_cut_fallback"
+    assert labels[0] == "轻度玩家"       # 8h < 10h
+    assert labels[1] == "核心玩家"       # 120h > 100h（bug 时被判轻度）
+    assert labels[2] == "核心玩家"       # 600h > 100h
+
+
+def test_playtime_hours_contract_cluster_profiles():
+    """回归：KMeans 簇画像的 avg_playtime_hours 不得再除 60。"""
+    from src.analysis.segmentation.player_segmentation import segment_players
+
+    rng = random.Random(7)
+    df = pd.DataFrame({
+        "playtime_forever": [rng.randint(100, 200) for _ in range(120)],
+        "votes_up": [rng.randint(0, 10) for _ in range(120)],
+        "review_text": ["x" * rng.randint(30, 300) for _ in range(120)],
+    })
+    _, meta = segment_players(df)
+    avgs = [p["avg_playtime_hours"] for p in meta["cluster_profiles"].values()]
+    # 输入全部在 100-200h，画像均值必须落在该区间（÷60 的话会 < 4）
+    assert all(90 <= v <= 210 for v in avgs), avgs
+
+
+def test_product_metrics_playtime_no_minute_misdetect():
+    """回归：重度游戏（小时口径 q80>500）不得被误判成分钟再除 60。"""
+    from src.analysis.product_metrics import playtime_hours_series
+
+    hours = pd.Series([300, 800, 1500, 4000, 6000])
+    df = pd.DataFrame({"playtime_forever": hours})
+    out = playtime_hours_series(df)
+    assert out.tolist() == hours.tolist()
