@@ -145,7 +145,7 @@ npm run dev -- --port 3010 --host 127.0.0.1
 │   ┌──────────────┐  ┌──────────────┐          │
 │   │ BERT情绪分析  │  │ LDA主题建模   │          │
 │   │ (Deep Learning)│  │ (ML)         │          │
-│   │ 90%+ 准确度   │  │ 自动主题发现  │          │
+│   │ 弱标签实测口径 │  │ 语言感知建模  │          │
 │   └──────────────┘  └──────────────┘          │
 └────────────────┬────────────────────────────────┘
                  ▼
@@ -169,8 +169,8 @@ npm run dev -- --port 3010 --host 127.0.0.1
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/yourusername/AI-Powered-GPI-OSS.git
-cd AI-Powered-GPI-OSS
+git clone https://github.com/YIOYIOIOI/GamePulse.git
+cd GamePulse
 ```
 
 2. **安装依赖**
@@ -250,8 +250,8 @@ cd frontend && npm run dev
 
 **技术实现**：
 - 模型：DistilBERT（BERT的轻量化版本）
-- 架构：Transformer（12层编码器，768维隐藏层）
-- 参数量：6600万
+- 架构：Transformer 编码器（DistilBERT 为 6 层，768 维隐藏层，从 12 层 BERT-base 蒸馏而来）
+- 参数量：约 6600 万
 - 一致率（vote_up 弱标签实测）：整体 55.3%，英文子集 70.3%，非英文 41.1% —— 故引入语言分流；90%+ 仅为 SST-2 公开基准数字，不代表本数据集表现
 
 **优势**：
@@ -442,7 +442,7 @@ A: 不是必须的。CPU模式下也能运行，只是速度较慢。如有NVIDI
 
 ## 联系方式
 
-项目链接：[https://github.com/yourusername/AI-Powered-GPI-OSS](https://github.com/yourusername/AI-Powered-GPI-OSS)
+项目仓库：github.com/YIOYIOIOI/GamePulse（私有）
 
 ## 致谢
 
@@ -456,7 +456,7 @@ A: 不是必须的。CPU模式下也能运行，只是速度较慢。如有NVIDI
 
 ## React Product Frontend
 
-The product-grade frontend from `C:\Users\YIOYIO\Downloads\zip` is now integrated under `frontend/`.
+The product-grade frontend lives under `frontend/` (React/Vite/TypeScript, package `gamepulse-frontend`).
 
 Run the local Python API first:
 

@@ -1,53 +1,29 @@
-# 数据采集
-requests>=2.31.0
-beautifulsoup4>=4.12.0
-steamreviews>=0.9.0
+# GamePulse 实际依赖（与代码 import 一一对应；2026-07 清理，移除了
+# streamlit/plotly/gensim/langchain 等 20+ 项无人 import 的历史残留）
 
-# 数据处理
+# 数据采集与处理
+requests>=2.31.0
 pandas>=2.0.0
 numpy>=1.24.0
-openpyxl>=3.1.0
 
-# 自然语言处理
-transformers>=4.30.0
-torch>=2.0.0
-sentencepiece>=0.1.99
-protobuf>=4.23.0
-
-# 情绪分析
-vaderSentiment>=3.3.2
-textblob>=0.17.1
-
-# 主题分析
+# 分析管线（src/analysis/pipeline.py）
 scikit-learn>=1.3.0
-gensim>=4.3.0
 nltk>=3.8.0
-jieba>=0.42.1
+langdetect>=1.0.9
 
-# AI/LLM 模块
+# 情绪模型（可选重依赖：未安装时 SentimentAnalyzer 自动降级规则 fallback，
+# 管线与测试均可离线运行；CI 刻意不装）
+torch>=2.0.0
+transformers>=4.30.0
+
+# LLM 摘要/策略（可选：未配置时跳过；llm_client 走 requests 直调，
+# openai/anthropic SDK 仅旧模块 fallback 用）
 openai>=1.0.0
-anthropic>=0.25.0
-langchain>=0.1.0
-langchain-openai>=0.0.5
 
-# 可视化
-streamlit>=1.28.0
-plotly>=5.17.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
-wordcloud>=1.9.0
-
-# 配置管理
+# 工具
+tqdm>=4.66.0
 python-dotenv>=1.0.0
 pyyaml>=6.0.0
 
-# 工具类
-tqdm>=4.66.0
-python-dateutil>=2.8.0
-pytz>=2023.3
-
-# 开发工具
-jupyter>=1.0.0
-ipykernel>=6.25.0
-black>=23.7.0
-pylint>=2.17.0
+# 开发/测试
+pytest>=7.4.0
