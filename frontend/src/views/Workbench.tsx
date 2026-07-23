@@ -3,8 +3,16 @@ import { ShieldCheck, Crosshair, AlertTriangle, Lightbulb, Database } from 'luci
 import clsx from 'clsx';
 import { normalizeTopicLabel } from '../lib/dataProcessor';
 
+interface EngineAction {
+  title?: string;
+  evidence?: string;
+  action?: string;
+  risk?: string;
+  priority?: string;
+}
+
 export function Workbench({ onChangeView }: { onChangeView: (v: string) => void }) {
-  const { data, status } = useDataStore();
+  const { data, status, enginePackage } = useDataStore();
 
   if (status.totalRecords === 0) {
     return (
@@ -26,16 +34,35 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
     );
   }
 
-  const positiveReviews = data.filter(r => r.sentiment === 'positive').length;
-  const negativeReviews = data.filter(r => r.sentiment === 'negative').length;
-  const posRatio = data.length > 0 ? (positiveReviews / data.length) * 100 : 0;
-  const negRatio = data.length > 0 ? (negativeReviews / data.length) * 100 : 0;
+  // 口径：引擎分析包优先（/api/analyze，与 CLI 批处理同一事实源），引擎不可用时本地计数降级
+  const engineCounts = enginePackage?.sentiment_counts;
+  const engineActive = !!engineCounts;
+  const positiveReviews = engineCounts?.positive ?? data.filter(r => r.sentiment === 'positive').length;
+  const negativeReviews = engineCounts?.negative ?? data.filter(r => r.sentiment === 'negative').length;
+  const countedTotal = engineCounts
+    ? Object.values(engineCounts).reduce((a: number, b: number) => a + b, 0)
+    : data.length;
+  const posRatio = countedTotal > 0 ? (positiveReviews / countedTotal) * 100 : 0;
+  const negRatio = countedTotal > 0 ? (negativeReviews / countedTotal) * 100 : 0;
 
   const healthScore = Math.floor(posRatio * 0.8 + (status.totalRecords > 500 ? 20 : status.totalRecords / 25));
 
-  // Generate actionable suggestions (mock logic based on actual parsed data)
-  const suggestions = [];
-  if (negRatio > 40) {
+  // 行动建议：引擎的证据卡（evidence_backed_actions，带证据/动作/风险三段）优先，
+  // 引擎不可用时降级为本地启发式
+  const engineActions = (enginePackage?.actions as EngineAction[] | undefined) || [];
+  const suggestions: { title: string; basis: string; action: string; risk: string; type: string }[] = [];
+  if (engineActions.length > 0) {
+    for (const a of engineActions.slice(0, 4)) {
+      suggestions.push({
+        title: a.title || '建议',
+        basis: a.evidence || '',
+        action: a.action || '',
+        risk: a.risk || '',
+        type: a.priority === 'high' ? 'danger' : a.priority === 'medium' ? 'warning' : 'info',
+      });
+    }
+  }
+  if (suggestions.length === 0 && negRatio > 40) {
     suggestions.push({
       title: '社区负向情绪偏高',
       basis: `${negRatio.toFixed(1)}% 的近期反馈为负向。`,
@@ -43,7 +70,7 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
       risk: '若不处理，可能带来较高流失风险。',
       type: 'danger'
     });
-  } else if (posRatio > 70) {
+  } else if (suggestions.length === 0 && posRatio > 70) {
     suggestions.push({
       title: '正向口碑较强',
       basis: `${posRatio.toFixed(1)}% 为正向情绪。`,
@@ -61,7 +88,7 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
   }, {} as Record<string, number>);
 
   const topNegTopic = Object.entries(negTopics).sort((a: [string, unknown], b: [string, unknown]) => (b[1] as number) - (a[1] as number))[0];
-  if (topNegTopic && (topNegTopic[1] as number) > (negativeReviews * 0.2)) {
+  if (engineActions.length === 0 && topNegTopic && (topNegTopic[1] as number) > (negativeReviews * 0.2)) {
     suggestions.push({
       title: `关键痛点： ${topNegTopic[0]}`,
       basis: `${topNegTopic[1]} 条负向反馈直接提到该问题。`,
@@ -86,6 +113,11 @@ export function Workbench({ onChangeView }: { onChangeView: (v: string) => void 
       <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">运营工作台</h1>
         <p className="text-zinc-500 dark:text-zinc-300">运营概览与可执行洞察。</p>
+        <p className="text-xs text-zinc-400 dark:text-zinc-300 mt-2">
+          {engineActive
+            ? '口径：Python 引擎 /api/analyze（情绪结构与行动建议来自引擎证据卡）'
+            : '口径：本地估算（分析引擎不可用时的降级路径）'}
+        </p>
       </div>
 
       {/* KPI Grid */}
