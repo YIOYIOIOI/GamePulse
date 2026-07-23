@@ -1,12 +1,34 @@
+import { useEffect, useState } from 'react';
 import { useDataStore } from '../lib/useDataStore';
 import { XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip as RTooltip, ScatterChart, Scatter, ZAxis } from 'recharts';
 import clsx from 'clsx';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Cpu } from 'lucide-react';
+import { fetchSegments, isEngineAvailable, SegmentMeta, SegmentProfile } from '../lib/analysisApi';
 
 export function PlayerSegmentation() {
   const { data } = useDataStore();
 
   const validData = data.filter(d => d.playtime_forever !== undefined && d.sentiment);
+
+  // 后端 Python 引擎分层（KMeans 多特征）：可用时展示引擎口径，不可用时静默降级为本地视图
+  const [engineMeta, setEngineMeta] = useState<SegmentMeta | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (validData.length < 100) return;
+      if (!(await isEngineAvailable())) return;
+      try {
+        const meta = await fetchSegments(validData);
+        if (!cancelled) setEngineMeta(meta);
+      } catch {
+        /* 引擎不可用时保持本地视图，不打扰用户 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.length]);
 
   if (validData.length === 0) {
     return (
@@ -60,6 +82,33 @@ export function PlayerSegmentation() {
           </p>
         </div>
       </div>
+
+      {engineMeta && engineMeta.method === 'kmeans_multifeature' && (
+        <div className="mb-8 bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">
+          <div className="flex items-center gap-2 mb-1">
+            <Cpu className="w-4 h-4 text-indigo-500" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300">后端引擎分层 · KMeans 多特征</h2>
+          </div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-300 mb-4">
+            由 Python 分析引擎计算（与批处理报告同一口径）：k={engineMeta.k}（轮廓系数 {engineMeta.silhouette} 自动选取），
+            特征：{(engineMeta.features || []).join(' / ')}，log1p + 标准化。
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(Object.entries(engineMeta.cluster_profiles ?? {}) as [string, SegmentProfile][]).map(([name, p]) => (
+              <div key={name} className="bg-zinc-50 dark:bg-zinc-900/40 rounded-lg p-3 border border-zinc-100 dark:border-zinc-700/50">
+                <div className="flex justify-between items-baseline mb-1">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{name}</span>
+                  <span className="text-[10px] font-mono text-zinc-400">{(p.share * 100).toFixed(1)}%</span>
+                </div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-300 font-mono leading-relaxed">
+                  n={p.n} · 均时长 {p.avg_playtime_hours}h
+                  {p.avg_votes_up !== null && <> · 均获赞 {p.avg_votes_up}</>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">

@@ -24,7 +24,10 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.analysis.product_metrics import build_analysis_package  # noqa: E402
+from src.analysis.evaluation import evaluate_sentiment_against_votes  # noqa: E402
+from src.analysis.language import add_language_columns, language_distribution  # noqa: E402
+from src.analysis.pipeline import run_full  # noqa: E402
+from src.analysis.segmentation.player_segmentation import segment_players  # noqa: E402
 from src.data_collection.steam_light_collector import (  # noqa: E402
     _steam_store_search_once,
     fetch_steam_reviews,
@@ -148,10 +151,49 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/analyze":
+            # 走统一管线的轻量路径（不跑情绪/主题重模型，保持同步请求响应速度）：
+            # 语言归一 → （已有情绪列时）弱标签评测 → KMeans 分层 → 质量门槛分析包。
+            # 与 main.py 完整管线共用 src/analysis/pipeline.py，保证口径一致。
             rows = payload.get("reviews") or payload.get("data") or []
             df = pd.DataFrame(rows)
-            package = build_analysis_package(df)
-            self._send({"ok": True, "package": package})
+            result = run_full(df, config={}, with_models=False)
+            body = {"ok": True, "package": result.quality_package}
+            if "lang_code" in result.df.columns:
+                body["language_distribution"] = language_distribution(result.df).to_dict()
+            if result.sentiment_evaluation is not None:
+                body["sentiment_evaluation"] = result.sentiment_evaluation
+            if result.segmentation_meta is not None:
+                body["segmentation_meta"] = result.segmentation_meta
+            self._send(body)
+            return
+
+        if parsed.path == "/api/analysis/sentiment-eval":
+            # 情感输出 vs vote_up 弱标签一致性（整体 + 按语言），含口径说明
+            rows = payload.get("reviews") or payload.get("data") or []
+            df = pd.DataFrame(rows)
+            try:
+                result = evaluate_sentiment_against_votes(df)
+            except ValueError as exc:
+                self._send({"ok": False, "message": str(exc)}, status=400)
+                return
+            self._send({"ok": True, "evaluation": result})
+            return
+
+        if parsed.path == "/api/analysis/segments":
+            # 多特征 KMeans 玩家分层：返回口径元数据 + 每行分层标签
+            rows = payload.get("reviews") or payload.get("data") or []
+            df = pd.DataFrame(rows)
+            segmented, meta = segment_players(df)
+            body = {"ok": True, "meta": meta}
+            if payload.get("include_labels"):
+                body["labels"] = segmented[["segment_cluster", "segment_label"]].to_dict("records")
+            self._send(body)
+            return
+
+        if parsed.path == "/api/analysis/language-distribution":
+            rows = payload.get("reviews") or payload.get("data") or []
+            df = add_language_columns(pd.DataFrame(rows))
+            self._send({"ok": True, "distribution": language_distribution(df).to_dict()})
             return
 
         self._send({"ok": False, "message": "Not found"}, status=404)

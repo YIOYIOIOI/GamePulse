@@ -13,8 +13,7 @@ import pandas as pd
 
 from src.data_collection.steam_scraper import SteamReviewScraper
 from src.data_processing.data_cleaner import DataCleaner
-from src.analysis.sentiment.sentiment_analyzer import SentimentAnalyzer
-from src.analysis.topic.topic_analyzer import TopicAnalyzer
+from src.analysis.pipeline import run_full
 from src.ai_modules.summarizer.review_summarizer import ReviewSummarizer
 from src.ai_modules.strategy.strategy_generator import StrategyGenerator
 
@@ -86,59 +85,64 @@ def process_data(config: dict, input_path: Path) -> Path:
     return output_path
 
 
-def analyze_sentiment(config: dict, input_path: Path) -> tuple:
-    """情绪分析"""
+def run_analysis(config: dict, input_path: Path) -> tuple:
+    """统一分析管线：语言归一 → 情绪 → 弱标签评测 → 语言感知主题 → KMeans 分层 → 质量门槛。
+
+    所有工件落到 data/results/：
+      {stem}_analyzed.csv                主数据（含 lang_code / sentiment / topic_id / segment_label）
+      {stem}_topics.json                 主题词表
+      {stem}_topic_metrics.json          NPMI / 多样性 / 建模口径 /（全量时）NMI 诊断
+      {stem}_sentiment_evaluation.json   vote_up 弱标签评测
+      {stem}_segmentation_meta.json      分层口径（k / silhouette / 簇画像）
+      {stem}_quality_package.json        质量门槛与分析包
+    """
     logger = logging.getLogger(__name__)
     logger.info("=" * 50)
-    logger.info("步骤 3: 情绪分析")
+    logger.info("步骤 3: 统一分析管线（情绪 / 评测 / 主题 / 分层 / 质量门槛）")
     logger.info("=" * 50)
 
     df = pd.read_csv(input_path)
-    analyzer = SentimentAnalyzer(config)
+    result = run_full(df, config)
 
-    df = analyzer.analyze_dataframe(df)
-    stats = analyzer.get_sentiment_stats(df)
+    out_dir = Path('data/results')
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = input_path.stem
 
-    # 保存结果
-    output_name = input_path.stem + "_sentiment"
-    output_path = Path('data/results') / f"{output_name}.csv"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False, encoding='utf-8-sig')
+    output_path = out_dir / f"{stem}_analyzed.csv"
+    result.df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
-    logger.info(f"✅ 情绪分析完成")
-    logger.info(f"   正面: {stats['sentiment_percentage'].get('positive', 0):.1%}")
-    logger.info(f"   负面: {stats['sentiment_percentage'].get('negative', 0):.1%}")
-    logger.info(f"   中立: {stats['sentiment_percentage'].get('neutral', 0):.1%}")
+    def _dump(name: str, obj) -> None:
+        if obj is None:
+            return
+        with open(out_dir / f"{stem}_{name}.json", 'w', encoding='utf-8') as f:
+            json.dump(obj, f, ensure_ascii=False, indent=2, default=str)
 
-    return output_path, stats
+    _dump('topics', {str(k): v for k, v in (result.topics or {}).items()} or None)
+    _dump('topic_metrics', result.topic_metrics)
+    _dump('sentiment_evaluation', result.sentiment_evaluation)
+    _dump('segmentation_meta', result.segmentation_meta)
+    _dump('quality_package', result.quality_package)
 
+    stats = result.sentiment_stats or {}
+    if stats:
+        logger.info("   正面: %.1f%%", stats['sentiment_percentage'].get('positive', 0) * 100)
+        logger.info("   负面: %.1f%%", stats['sentiment_percentage'].get('negative', 0) * 100)
+    if result.sentiment_evaluation:
+        overall = result.sentiment_evaluation.get('overall', {})
+        logger.info("   弱标签一致率(整体): %s", overall.get('agreement'))
+    if result.topic_metrics:
+        logger.info("   主题建模口径: %s (%s docs), NPMI=%s",
+                    result.topic_metrics.get('modeled_language'),
+                    result.topic_metrics.get('n_docs_modeled'),
+                    (result.topic_metrics.get('npmi') or {}).get('mean_npmi'))
+    if result.segmentation_meta:
+        logger.info("   分层: %s, k=%s", result.segmentation_meta.get('method'),
+                    result.segmentation_meta.get('k'))
+    for note in result.notes:
+        logger.info("   ⚠ %s", note)
 
-def analyze_topic(config: dict, input_path: Path) -> tuple:
-    """主题分析"""
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 50)
-    logger.info("步骤 4: 主题分析")
-    logger.info("=" * 50)
-
-    df = pd.read_csv(input_path)
-    analyzer = TopicAnalyzer(config)
-
-    df, topics = analyzer.analyze_dataframe(df)
-
-    # 保存结果
-    output_name = input_path.stem + "_topic"
-    output_path = Path('data/results') / f"{output_name}.csv"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False, encoding='utf-8-sig')
-
-    # 保存主题信息
-    topics_path = Path('data/results') / f"{output_name}_topics.json"
-    with open(topics_path, 'w', encoding='utf-8') as f:
-        json.dump({str(k): v for k, v in topics.items()}, f, ensure_ascii=False, indent=2)
-
-    logger.info(f"✅ 主题分析完成，发现 {len(topics)} 个主题")
-
-    return output_path, topics
+    logger.info("✅ 分析管线完成")
+    return output_path, result
 
 
 def summarize_reviews(config: dict, input_path: Path) -> dict:
@@ -238,6 +242,37 @@ def generate_report(game_name: str, analysis_results: dict):
                 f.write(f"主题 {topic_id}: {', '.join(words[:5])}\n")
             f.write("\n")
 
+        # 质量与评测（统一管线新增）
+        tm = analysis_results.get('topic_metrics')
+        if tm:
+            f.write("## 二.1 主题质量口径\n\n")
+            f.write(f"- 建模语言子集: {tm.get('modeled_language')}（{tm.get('n_docs_modeled')} docs）\n")
+            npmi = (tm.get('npmi') or {})
+            f.write(f"- NPMI 连贯性: {npmi.get('mean_npmi')}；主题多样性: {tm.get('topic_diversity')}\n")
+            assoc = tm.get('language_association')
+            if assoc:
+                f.write(f"- ⚠ 主题×语言 NMI: {assoc.get('nmi_topic_vs_language')}，"
+                        f"语言簇主题数: {assoc.get('non_english_language_cluster_topics')}"
+                        f"（未做语言过滤，主题可能在按语言聚类）\n")
+            f.write("\n")
+
+        se = analysis_results.get('sentiment_evaluation')
+        if se:
+            f.write("## 二.2 情绪输出弱标签评测（vote_up）\n\n")
+            overall = se.get('overall', {})
+            f.write(f"- 整体一致率: {overall.get('agreement')}（n={overall.get('n')}）\n")
+            for lang, m in (se.get('by_language') or {}).items():
+                f.write(f"- {lang}: 一致率 {m.get('agreement')}（n={m.get('n')}）\n")
+            f.write("- 注意: vote_up 是弱标签，一致率不等于准确率\n\n")
+
+        sm = analysis_results.get('segmentation_meta')
+        if sm:
+            f.write("## 二.3 玩家分层口径\n\n")
+            f.write(f"- 方法: {sm.get('method')}；k={sm.get('k')}；silhouette={sm.get('silhouette')}\n")
+            for name, prof in (sm.get('cluster_profiles') or {}).items():
+                f.write(f"- {name}: n={prof.get('n')}（{prof.get('share')}）\n")
+            f.write("\n")
+
         # AI 总结
         if 'summaries' in analysis_results:
             summaries = analysis_results['summaries']
@@ -303,15 +338,14 @@ def main():
             current_file = processed_data_path
 
         if args.mode in ['analyze', 'all']:
-            # 情绪分析
-            sentiment_data_path, sentiment_stats = analyze_sentiment(config, current_file)
-            analysis_results['sentiment_stats'] = sentiment_stats
-            current_file = sentiment_data_path
-
-            # 主题分析
-            topic_data_path, topics = analyze_topic(config, current_file)
-            analysis_results['topics'] = topics
-            current_file = topic_data_path
+            # 统一分析管线（情绪 / 弱标签评测 / 语言感知主题 / 分层 / 质量门槛）
+            analyzed_path, pipeline_result = run_analysis(config, current_file)
+            analysis_results['sentiment_stats'] = pipeline_result.sentiment_stats or {}
+            analysis_results['topics'] = pipeline_result.topics or {}
+            analysis_results['sentiment_evaluation'] = pipeline_result.sentiment_evaluation
+            analysis_results['topic_metrics'] = pipeline_result.topic_metrics
+            analysis_results['segmentation_meta'] = pipeline_result.segmentation_meta
+            current_file = analyzed_path
 
             # AI 总结
             summaries = summarize_reviews(config, current_file)
@@ -330,7 +364,7 @@ def main():
         logger.info("=" * 50)
         logger.info(f"\n最终结果文件: {current_file}")
         logger.info(f"分析报告: data/results/{game_name}_analysis_report.txt")
-        logger.info(f"\n启动可视化 Dashboard: streamlit run src/visualization/dashboard.py")
+        logger.info("\n启动产品前端: python scripts/gamepulse_api_server.py --port 8765 + cd frontend && npm run dev")
 
     except Exception as e:
         logger.error(f"❌ 程序执行失败: {e}", exc_info=True)
