@@ -69,9 +69,23 @@ export async function isEngineAvailable(timeoutMs = 1200): Promise<boolean> {
   }
 }
 
-export async function fetchSegments(rows: unknown[]): Promise<SegmentMeta> {
-  const data = await post<{ ok: boolean; meta: SegmentMeta }>('/api/analysis/segments', { reviews: rows });
-  return data.meta;
+export interface SegmentRowLabel {
+  segment_cluster: number;
+  segment_label: string;
+}
+
+export interface SegmentsResult {
+  meta: SegmentMeta;
+  /** 行级分层标签（与传入 rows 顺序一致）。include_labels=true 时返回。 */
+  labels?: SegmentRowLabel[];
+}
+
+export async function fetchSegments(rows: unknown[], includeLabels = false): Promise<SegmentsResult> {
+  const data = await post<{ ok: boolean; meta: SegmentMeta; labels?: SegmentRowLabel[] }>(
+    '/api/analysis/segments',
+    { reviews: rows, include_labels: includeLabels },
+  );
+  return { meta: data.meta, labels: data.labels };
 }
 
 export async function fetchSentimentEvaluation(rows: unknown[]): Promise<SentimentEvaluation> {

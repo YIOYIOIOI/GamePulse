@@ -10,16 +10,23 @@ export function PlayerSegmentation() {
 
   const validData = data.filter(d => d.playtime_forever !== undefined && d.sentiment);
 
-  // 后端 Python 引擎分层（KMeans 多特征）：可用时展示引擎口径，不可用时静默降级为本地视图
+  // 后端 Python 引擎分层（KMeans 多特征）：可用时页面主体消费引擎的行级标签
+  // （与批处理报告同一口径），不可用时降级为本地时长阈值视图
   const [engineMeta, setEngineMeta] = useState<SegmentMeta | null>(null);
+  const [engineLabels, setEngineLabels] = useState<string[] | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (validData.length < 100) return;
       if (!(await isEngineAvailable())) return;
       try {
-        const meta = await fetchSegments(validData);
-        if (!cancelled) setEngineMeta(meta);
+        const { meta, labels } = await fetchSegments(validData, true);
+        if (!cancelled) {
+          setEngineMeta(meta);
+          if (labels && labels.length === validData.length) {
+            setEngineLabels(labels.map(l => l.segment_label));
+          }
+        }
       } catch {
         /* 引擎不可用时保持本地视图，不打扰用户 */
       }
@@ -40,11 +47,19 @@ export function PlayerSegmentation() {
     );
   }
 
-  const segments = {
-    '新手玩家': validData.filter(d => d.player_type === '新手玩家'),
-    '普通玩家': validData.filter(d => d.player_type === '普通玩家'),
-    '核心玩家': validData.filter(d => d.player_type === '核心玩家'),
-  };
+  // 分组口径：引擎行级标签可用时用引擎口径（消除页面内双口径），否则退回本地时长阈值
+  const engineActive = engineLabels !== null && engineLabels.length === validData.length;
+  const segments: Record<string, typeof validData> = {};
+  if (engineActive) {
+    validData.forEach((d, i) => {
+      const key = engineLabels![i] || '未知';
+      (segments[key] ??= []).push(d);
+    });
+  } else {
+    segments['新手玩家'] = validData.filter(d => d.player_type === '新手玩家');
+    segments['普通玩家'] = validData.filter(d => d.player_type === '普通玩家');
+    segments['核心玩家'] = validData.filter(d => d.player_type === '核心玩家');
+  }
 
   const segmentStats = Object.entries(segments).map(([name, groupData]) => {
     const total = groupData.length;
@@ -61,7 +76,7 @@ export function PlayerSegmentation() {
       avgRisk: Math.floor(avgRisk),
       avgVal: Math.floor(avgVal),
     };
-  }).filter(s => s.total > 0);
+  }).filter(s => s.total > 0).sort((a, b) => a.avgPlaytime - b.avgPlaytime);
 
   const scatterData = [...validData].sort(() => 0.5 - Math.random()).slice(0, 100).map(d => ({
     x: d.value_potential_score || 50,
@@ -131,7 +146,12 @@ export function PlayerSegmentation() {
         </div>
 
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700/50">
-           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-6">分层概览</h2>
+           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-300 mb-1">分层概览</h2>
+           <p className="text-xs text-zinc-400 dark:text-zinc-300 mb-5">
+             {engineActive
+               ? '口径：Python 引擎 KMeans 行级标签（与批处理报告一致）'
+               : '口径：本地时长阈值（<10h 新手 / 10–100h 普通 / >100h 核心）'}
+           </p>
 
            <div className="space-y-6">
               {segmentStats.map(s => (
