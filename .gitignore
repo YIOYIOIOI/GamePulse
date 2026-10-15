@@ -1,81 +1,21 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Runtime data: raw responses, database, backups and access tokens
 var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual Environment
-venv/
-ENV/
-env/
-.venv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb_checkpoints/
-
-# Data files (too large for git)
-data/raw/*.csv
-data/processed/*.csv
-data/results/*.csv
-data/results/*.txt
-data/results/*.json
-
-# Keep directory structure but ignore large files
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/results/.gitkeep
-
-# Model cache
-.cache/
-models/
-*.pth
-*.pt
-*.bin
-
-# Logs
-*.log
-logs/
-
-# Environment variables
+# Local environment and editor files
 .env
 .env.local
-config/secrets.yaml
-
-# Temporary files
-*.tmp
-*.temp
-.tmp/
-
-# Test output
-test_output/
-
-# React frontend source exceptions
-!frontend/
-!frontend/src/
-!frontend/src/lib/
-!frontend/src/lib/**
+.vscode/
+.idea/
+.DS_Store
+*.log

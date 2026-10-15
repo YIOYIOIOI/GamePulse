@@ -5,21 +5,21 @@ on:
   pull_request:
 
 jobs:
-  backend-tests:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install light deps (offline test surface)
+          python-version: "3.12"
+      - name: Install locked dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pandas numpy scikit-learn langdetect pytest requests python-dotenv
-      - name: Run pytest
-        run: pytest tests -q
+          python -m pip install uv==0.12.17
+          uv sync --locked
+      - run: uv run ruff check src tests
+      - run: uv run pytest -q
 
-  frontend-build:
+  frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,9 +28,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --no-audit --no-fund
-      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npx prettier --check src
       - run: npm run build
