@@ -61,7 +61,7 @@ def main():
         )
         return
     if args.command == "game":
-        from src.quality.games import GameLookup, Games, check_reviewed, normalize_repo
+        from src.quality.games import GameLookup, Games, check_reviewed, checked_repo
 
         games = Games(store)
         if args.action == "add":
@@ -70,9 +70,10 @@ def main():
                 found = check_reviewed(lookup.app(args.app_id), args.app_id)
             except ValueError as exc:
                 raise SystemExit(str(exc)) from exc
-            repo = normalize_repo(args.repo)
-            if repo and not lookup.repo_exists(repo):
-                raise SystemExit("GitHub 上找不到这个公开仓库：" + repo)
+            try:
+                repo = checked_repo(lookup, args.repo)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
             print(json.dumps(games.add(args.app_id, found["name"], repo), ensure_ascii=False))
         elif args.action == "remove":
             games.remove(args.key)

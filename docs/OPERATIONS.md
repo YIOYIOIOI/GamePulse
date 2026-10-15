@@ -20,7 +20,7 @@
 .venv\Scripts\python.exe -m src.quality.cli game remove <游戏 key>
 ```
 
-App ID 是商店页链接里的数字，例如 store.steampowered.com/app/**1127400**。游戏 key 由名称生成（英文名转小写，中文名为 `app-<App ID>`），`game list` 可以查看。添加、修改仓库和移除游戏需要管理员权限。
+App ID 是商店页链接里的数字，例如 store.steampowered.com/app/**1127400**。游戏 key 由名称生成（英文名转小写，中文名为 `app-<App ID>`），`game list` 可以查看。移除后重新添加同一款游戏会沿用原来的 key，历史数据和跟进自动接上；名称撞上已用过的 key 的其他游戏会在 key 后加 App ID。仓库按 GitHub 返回的当前名称保存，改过名的仓库也能正常同步。游戏由所有工作区共用，添加、修改仓库和移除只能由主工作区的管理员操作。
 
 ## 同步数据
 

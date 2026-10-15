@@ -23,7 +23,11 @@ class FakeLookup:
         2358720: "黑神话：悟空",
         598190: "Hollow Knight - Official Soundtrack",
     }
-    repos = {"Anuken/Mindustry"}
+    # Typed name -> name GitHub reports; the old repository name redirects to the new one.
+    repos = {
+        "anuken/mindustry": "Anuken/Mindustry",
+        "yioyioioi/ai-powered-gpi-oss": "YIOYIOIOI/GamePulse",
+    }
 
     def search(self, term):
         return [
@@ -37,8 +41,11 @@ class FakeLookup:
         kind = "music" if "Soundtrack" in (name or "") else "game"
         return {"app_id": app_id, "name": name, "type": kind} if name else None
 
-    def repo_exists(self, repo):
-        return repo in self.repos
+    def canonical_repo(self, repo):
+        return self.repos.get(repo.lower())
+
+    def close(self):
+        pass
 
 
 @pytest.mark.parametrize(
@@ -75,6 +82,7 @@ def test_admin_adds_links_and_removes_games(tmp_path):
         added = client.post("/api/quality/games", json={"app_id": 2358720})
         assert added.status_code == 201
         assert added.json()["key"] == "app-2358720" and added.json()["repo"] == ""
+        assert added.json()["latest"] is None
         assert client.post("/api/quality/games", json={"app_id": 2358720}).status_code == 409
         assert client.post("/api/quality/games", json={"app_id": 42}).status_code == 422
         soundtrack = client.post("/api/quality/games", json={"app_id": 598190})
@@ -89,21 +97,35 @@ def test_admin_adds_links_and_removes_games(tmp_path):
         found = client.get("/api/quality/games/search?q=mind").json()
         assert found == [{"app_id": 1127400, "name": "Mindustry", "image": "", "added": True}]
         assert client.patch("/api/quality/games/mindustry", json={"repo": ""}).json()["repo"] == ""
+        # A renamed repository is stored under the name GitHub reports now.
+        renamed = client.patch(
+            "/api/quality/games/mindustry", json={"repo": "YIOYIOIOI/AI-Powered-GPI-OSS"}
+        )
+        assert renamed.json()["repo"] == "YIOYIOIOI/GamePulse"
         unknown = client.post("/api/quality/sync", json={"products": ["openttd"]})
         assert unknown.status_code == 422
         assert client.delete("/api/quality/games/mindustry").status_code == 200
         assert [g["key"] for g in client.get("/api/quality/games").json()] == ["app-2358720"]
 
 
-def test_only_admins_change_games(tmp_path):
+def team_headers(app, role, workspace):
+    identity = app.state.access.create("fixture " + role, role, workspace)
+    return {
+        "Authorization": "Bearer " + Path(identity["token_file"]).read_text(),
+        "X-Workspace-ID": workspace,
+    }
+
+
+def test_only_main_workspace_admins_change_games(tmp_path):
     store = Store(tmp_path)
     app = create_app(store, serve_frontend=False, team=True, lookup=FakeLookup())
-    viewer = app.state.access.create("fixture viewer", "viewer", "main")
-    headers = {
-        "Authorization": "Bearer " + Path(viewer["token_file"]).read_text(),
-        "X-Workspace-ID": "main",
-    }
+    headers = team_headers(app, "viewer", "main")
+    other_owner = team_headers(app, "owner", "team_b")
     with TestClient(app) as client:
+        # Games are shared by every workspace, so only the main workspace may change them.
+        refused = client.post("/api/quality/games", headers=other_owner, json={"app_id": 1127400})
+        assert refused.status_code == 403
+        assert client.delete("/api/quality/games/mindustry", headers=other_owner).status_code == 403
         assert client.get("/api/quality/games", headers=headers).status_code == 200
         assert client.get("/api/quality/games/search?q=m", headers=headers).status_code == 403
         assert (
@@ -189,3 +211,27 @@ def test_each_game_shows_its_own_latest_snapshot(tmp_path):
         listed = {g["key"]: g["latest"] for g in client.get("/api/quality/games").json()}
         assert listed[GAME.key]["run_id"] == first and listed[other]["run_id"] == second
         assert listed[GAME.key]["reviews"] > 0
+
+
+def test_removed_game_keeps_its_key_for_its_own_app_only(tmp_path):
+    store = Store(tmp_path)
+    games = Games(store)
+    games.add(GAME.app_id, GAME.name, "")
+    run_id = store.new_run({})
+    sync(store, run_id, {**SYNC_REQUEST, "products": [GAME.key]}, SteamOnlyCollector)
+    games.remove(GAME.key)
+    # Another app whose name gives the same key must not inherit the old snapshot.
+    other = games.add(999001, "Mindustry", "")["key"]
+    assert other == "mindustry-999001" and store.latest_summary(other) is None
+    games.remove(other)
+    # The same app added again gets its key back, and with it the earlier snapshot.
+    assert games.add(GAME.app_id, GAME.name, "")["key"] == GAME.key
+    assert store.latest_summary(GAME.key)["run_id"] == run_id
+
+
+def test_sync_with_an_unknown_game_is_marked_failed(tmp_path):
+    store = Store(tmp_path)
+    run_id = store.new_run({})
+    with pytest.raises(ValueError):
+        sync(store, run_id, {**SYNC_REQUEST, "products": ["unknown-game"]}, SteamOnlyCollector)
+    assert store.run(run_id)["status"] == "failed"

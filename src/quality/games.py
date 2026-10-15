@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS games (
 );
 """
 REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}")
+STORE_REGIONS = ("CN", "US")
 # Steam app types that have player reviews; soundtracks, videos and demos do not.
 REVIEWED_TYPES = {"game", "dlc"}
 
@@ -43,8 +44,13 @@ def normalize_repo(text: str) -> str:
     return value
 
 
-def game_key(name: str, app_id: int, taken: set[str]) -> str:
-    """A readable key for URLs and the CLI: the Latin part of the name, else app-<id>."""
+def game_key(name: str, app_id: int, taken: set[str], previous: str | None = None) -> str:
+    """A readable key for URLs and the CLI: the Latin part of the name, else app-<id>.
+
+    A game added again gets its previous key back, so its snapshots and follow-ups reattach.
+    """
+    if previous and previous not in taken:
+        return previous
     latin = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     base = re.sub(r"[^a-z0-9]+", "-", latin.lower()).strip("-")[:40].strip("-")
     key = base if len(base) >= 3 else f"app-{app_id}"
@@ -72,7 +78,18 @@ class Games:
             if conn.execute("SELECT 1 FROM games WHERE app_id=?", (app_id,)).fetchone():
                 raise ConflictError("这款游戏已经添加过了")
             taken = {r[0] for r in conn.execute("SELECT key FROM games")}
-            key = game_key(name, app_id, taken)
+            # Keys a removed game used in earlier snapshots stay reserved for that Steam app,
+            # otherwise a different game could inherit its snapshots and follow-ups.
+            previous = None
+            for used, used_app in conn.execute(
+                "SELECT g.key,json_extract(g.value,'$.app_id') FROM runs,"
+                "json_each(runs.config_json,'$.games') g"
+            ):
+                if used_app == app_id:
+                    previous = previous or used
+                else:
+                    taken.add(used)
+            key = game_key(name, app_id, taken, previous)
             try:
                 conn.execute(
                     "INSERT INTO games(key,name,app_id,repo,added_at) VALUES(?,?,?,?,?)",
@@ -105,6 +122,9 @@ class GameLookup:
             headers={"User-Agent": "GamePulse/0.2 player-feedback monitoring"},
         )
 
+    def close(self):
+        self.client.close()
+
     def _get(self, url: str, params: dict | None = None, headers: dict | None = None):
         try:
             return self.client.get(url, params=params, headers=headers)
@@ -112,13 +132,18 @@ class GameLookup:
             raise ConnectionError("暂时连不上 Steam 或 GitHub，请稍后再试") from exc
 
     def search(self, term: str) -> list[dict]:
-        response = self._get(
-            "https://store.steampowered.com/api/storesearch/",
-            {"term": term, "l": "schinese", "cc": "CN"},
-        )
-        if response.status_code != 200:
-            raise ConnectionError(f"Steam 搜索返回 HTTP {response.status_code}")
-        items = response.json().get("items", [])
+        items = []
+        # Chinese names come from the CN store; the US store also lists games not sold in China.
+        for region in STORE_REGIONS:
+            response = self._get(
+                "https://store.steampowered.com/api/storesearch/",
+                {"term": term, "l": "schinese", "cc": region},
+            )
+            if response.status_code != 200:
+                raise ConnectionError(f"Steam 搜索返回 HTTP {response.status_code}")
+            items = response.json().get("items", [])
+            if items:
+                break
         return [
             {"app_id": item["id"], "name": item["name"], "image": item.get("tiny_image", "")}
             for item in items
@@ -126,25 +151,39 @@ class GameLookup:
         ][:10]
 
     def app(self, app_id: int) -> dict | None:
-        response = self._get(
-            "https://store.steampowered.com/api/appdetails",
-            {"appids": app_id, "l": "schinese", "cc": "CN"},
-        )
-        if response.status_code != 200:
-            raise ConnectionError(f"Steam 返回 HTTP {response.status_code}")
-        entry = (response.json() or {}).get(str(app_id), {})
-        data = entry.get("data") or {}
-        if entry.get("success") is not True or not data.get("name"):
-            return None
-        return {"app_id": app_id, "name": data["name"], "type": data.get("type", "")}
+        for region in STORE_REGIONS:
+            response = self._get(
+                "https://store.steampowered.com/api/appdetails",
+                {"appids": app_id, "l": "schinese", "cc": region},
+            )
+            if response.status_code != 200:
+                raise ConnectionError(f"Steam 返回 HTTP {response.status_code}")
+            entry = (response.json() or {}).get(str(app_id), {})
+            data = entry.get("data") or {}
+            if entry.get("success") is True and data.get("name"):
+                return {"app_id": app_id, "name": data["name"], "type": data.get("type", "")}
+        return None
 
-    def repo_exists(self, repo: str) -> bool:
+    def canonical_repo(self, repo: str) -> str | None:
+        """owner/name as GitHub now reports it (after renames and case fixes), or None."""
         response = self._get(
             f"https://api.github.com/repos/{repo}",
             headers={"Accept": "application/vnd.github+json"},
         )
         if response.status_code == 404:
-            return False
+            return None
         if response.status_code != 200:
             raise ConnectionError(f"GitHub 返回 HTTP {response.status_code}")
-        return not response.json().get("private", False)
+        body = response.json()
+        return None if body.get("private", False) else body.get("full_name") or repo
+
+
+def checked_repo(lookup: GameLookup, text: str) -> str:
+    """The canonical public repository for user input; empty input means no repository."""
+    repo = normalize_repo(text)
+    if not repo:
+        return ""
+    canonical = lookup.canonical_repo(repo)
+    if not canonical:
+        raise ValueError("GitHub 上找不到这个公开仓库：" + repo)
+    return canonical

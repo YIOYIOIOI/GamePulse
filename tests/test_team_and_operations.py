@@ -97,7 +97,12 @@ def test_team_roles_tenant_boundaries_and_revocation(populated):
     owner, _ = headers(access, "fixture owner", "owner", "main")
     foreign, f = headers(access, "fixture foreign", "owner", "team_b")
     eid = store.query("SELECT id FROM evidence WHERE run_id=? LIMIT 1", (rid,))[0]["id"]
-    item = {"run_id": rid, "product": "mindustry", "title": "权限验收测试事项", "evidence_ids": [eid]}
+    item = {
+        "run_id": rid,
+        "product": "mindustry",
+        "title": "权限验收测试事项",
+        "evidence_ids": [eid],
+    }
     with TestClient(app) as client:
         assert client.get("/api/quality/snapshot").status_code == 401
         assert client.get("/api/quality/snapshot", headers=viewer).status_code == 200
@@ -105,7 +110,12 @@ def test_team_roles_tenant_boundaries_and_revocation(populated):
         created = client.post("/api/quality/triage", headers=analyst, json=item)
         assert created.status_code == 201
         tid = created.json()["id"]
-        update = {"revision": 1, "status": "investigating", "owner": "测试负责人", "note": "开始核对"}
+        update = {
+            "revision": 1,
+            "status": "investigating",
+            "owner": "测试负责人",
+            "note": "开始核对",
+        }
         assert (
             client.patch(f"/api/quality/triage/{tid}", headers=analyst, json=update).status_code
             == 200

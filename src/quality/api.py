@@ -31,7 +31,7 @@ from src.quality.contracts import (
     TriageUpdate,
 )
 from src.quality.exporting import csv_bytes, evidence_rows
-from src.quality.games import GameLookup, Games, check_reviewed, normalize_repo
+from src.quality.games import GameLookup, Games, check_reviewed, checked_repo
 from src.quality.operations import Operations
 from src.quality.pipeline import replay, sync
 from src.quality.store import ConflictError, Store
@@ -111,6 +111,7 @@ def create_app(
         except asyncio.CancelledError:
             pass
         agents.shutdown()
+        lookup.close()
         jobs.pool.shutdown(wait=False, cancel_futures=True)
 
     app = FastAPI(title="GamePulse Product Quality", version=VERSION, lifespan=lifespan)
@@ -280,10 +281,10 @@ def create_app(
         access.audit(request.state.principal, "identity_revoked", identity)
         return {"revoked": True}
 
-    def require_main_workspace(request: Request):
-        # The database and raw pages are shared by every workspace.
+    def require_main_workspace(request: Request, action="全库备份"):
+        # The database, raw pages and the list of games are shared by every workspace.
         if request.state.principal["workspace"] != "main":
-            raise PermissionError("全库备份仅向主工作区管理员开放")
+            raise PermissionError(f"{action}仅向主工作区管理员开放")
 
     @app.get("/api/quality/backups")
     def backups(request: Request):
@@ -301,24 +302,7 @@ def create_app(
 
     @app.get("/api/quality/games")
     def list_games():
-        result = []
-        for game in games.list():
-            run = store.latest(game["key"])
-            data = next(
-                (
-                    p
-                    for p in (run or {}).get("report", {}).get("products", [])
-                    if p["key"] == game["key"]
-                ),
-                None,
-            )
-            latest = data and {
-                "run_id": run["id"],
-                "as_of": run["report"]["as_of"],
-                "reviews": data["recommendation"]["n"],
-            }
-            result.append({**game, "latest": latest})
-        return result
+        return [{**game, "latest": store.latest_summary(game["key"])} for game in games.list()]
 
     @app.get("/api/quality/games/search")
     def search_games(q: str = Query(min_length=1, max_length=100)):
@@ -331,27 +315,25 @@ def create_app(
                 results.insert(0, {"app_id": found["app_id"], "name": found["name"], "image": ""})
         return [{**r, "added": r["app_id"] in added} for r in results]
 
-    def checked_repo(text: str) -> str:
-        repo = normalize_repo(text)
-        if repo and not lookup.repo_exists(repo):
-            raise ValueError("GitHub 上找不到这个公开仓库：" + repo)
-        return repo
-
     @app.post("/api/quality/games", status_code=201)
     def add_game(body: GameCreate, request: Request):
+        require_main_workspace(request, "添加游戏")
         found = check_reviewed(lookup.app(body.app_id), body.app_id)
-        game = games.add(body.app_id, found["name"], checked_repo(body.repo))
+        game = games.add(body.app_id, found["name"], checked_repo(lookup, body.repo))
         access.audit(request.state.principal, "game_added", game["key"])
-        return game
+        # A game added again keeps its key, and with it any earlier snapshot.
+        return {**game, "latest": store.latest_summary(game["key"])}
 
     @app.patch("/api/quality/games/{key}")
     def update_game(key: str, body: GameUpdate, request: Request):
-        game = games.set_repo(key, checked_repo(body.repo))
+        require_main_workspace(request, "修改游戏")
+        game = games.set_repo(key, checked_repo(lookup, body.repo))
         access.audit(request.state.principal, "game_repo_changed", key)
-        return game
+        return {**game, "latest": store.latest_summary(key)}
 
     @app.delete("/api/quality/games/{key}")
     def remove_game(key: str, request: Request):
+        require_main_workspace(request, "移除游戏")
         games.remove(key)
         access.audit(request.state.principal, "game_removed", key)
         return {"removed": key}

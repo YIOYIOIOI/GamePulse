@@ -232,7 +232,7 @@ class Store:
             ]
         return [self.run(i) for i in ids]
 
-    def latest(self, product: str | None = None) -> dict | None:
+    def latest_id(self, product: str | None = None) -> str | None:
         """Newest completed snapshot; with a product, the newest one that collected that game."""
         query, params = "SELECT id FROM runs WHERE status='completed'", ()
         if product:
@@ -245,7 +245,26 @@ class Store:
             row = conn.execute(
                 query + " ORDER BY finished_at DESC,rowid DESC LIMIT 1", params
             ).fetchone()
-        return self.run(row[0]) if row else None
+        return row[0] if row else None
+
+    def latest(self, product: str | None = None) -> dict | None:
+        run_id = self.latest_id(product)
+        return self.run(run_id) if run_id else None
+
+    def latest_summary(self, product: str) -> dict | None:
+        """The game's newest snapshot id, time and review count, without decoding the report."""
+        run_id = self.latest_id(product)
+        if not run_id:
+            return None
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT json_extract(r.report_json,'$.as_of'),"
+                "json_extract(p.value,'$.recommendation.n') FROM runs r,"
+                "json_each(r.report_json,'$.products') p "
+                "WHERE r.id=? AND json_extract(p.value,'$.key')=?",
+                (run_id, product),
+            ).fetchone()
+        return {"run_id": run_id, "as_of": row[0], "reviews": row[1]} if row else None
 
     def pages(self, run_id: str) -> list[dict]:
         with self.connect() as conn:

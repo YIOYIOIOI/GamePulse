@@ -141,9 +141,7 @@ def test_future_timestamp_and_changed_units_are_rejected():
     row = copy.deepcopy(CAPTURE["reviews"][0])
     row["timestamp_created"] = int((END + timedelta(days=1)).timestamp())
     row["timestamp_updated"] = row["timestamp_created"]
-    evidence, _, quarantine, _ = normalize(
-        "unit", GAME, "steam", [(row, {"id": "raw"}, "/0")], END
-    )
+    evidence, _, quarantine, _ = normalize("unit", GAME, "steam", [(row, {"id": "raw"}, "/0")], END)
     assert not evidence and quarantine
     row = copy.deepcopy(CAPTURE["reviews"][0])
     row["author"]["playtime_forever"] = 1.5
@@ -352,7 +350,18 @@ def test_api_rejects_cross_site_writes_and_unknown_products(populated):
 
 
 def agent_call(**overrides):
-    return ToolCall.model_validate({"tool": "review_breakdown", "group_by": "language", "language": None, "category": None, "recommended": None, "start": None, "end": None, **overrides})
+    return ToolCall.model_validate(
+        {
+            "tool": "review_breakdown",
+            "group_by": "language",
+            "language": None,
+            "category": None,
+            "recommended": None,
+            "start": None,
+            "end": None,
+            **overrides,
+        }
+    )
 
 
 def test_agent_packet_is_bound_to_product_and_completed_snapshot(populated):
@@ -367,9 +376,19 @@ def test_agent_packet_is_bound_to_product_and_completed_snapshot(populated):
 def test_agent_selection_cannot_reference_unprovided_evidence(populated):
     store, run_id = populated
     with pytest.raises(ValueError, match="证据"):
-        build_packet(store, AgentRequest(run_id=run_id, product="mindustry", message="test", evidence_ids=["fabricated"]))
+        build_packet(
+            store,
+            AgentRequest(
+                run_id=run_id, product="mindustry", message="test", evidence_ids=["fabricated"]
+            ),
+        )
     with pytest.raises(ValueError, match="版本"):
-        build_packet(store, AgentRequest(run_id=run_id, product="mindustry", message="test", release_id="fabricated"))
+        build_packet(
+            store,
+            AgentRequest(
+                run_id=run_id, product="mindustry", message="test", release_id="fabricated"
+            ),
+        )
 
 
 def test_agent_queries_reconcile_and_leave_warehouse_unchanged(populated):
@@ -379,7 +398,10 @@ def test_agent_queries_reconcile_and_leave_warehouse_unchanged(populated):
     previous = packet_hash(packet)
     trace = execute_tool(store, packet, agent_call(), 0)
     assert trace["result"]["total"] == packet["facts"]["recommendation.n"]
-    assert sum(r["negative"] for r in trace["result"]["rows"]) == packet["facts"]["recommendation.negative"]
+    assert (
+        sum(r["negative"] for r in trace["result"]["rows"])
+        == packet["facts"]["recommendation.negative"]
+    )
     assert "run_id=?" in trace["sql"] and "product=?" in trace["sql"]
     assert packet_hash(packet) != previous
     assert store.query("SELECT COUNT(*) AS n FROM evidence")[0]["n"] == original_count
@@ -406,7 +428,22 @@ def test_agent_query_time_scope_and_naive_dates_are_rejected(populated):
 def test_agent_answer_rejects_hallucinated_metrics_and_references(populated):
     store, run_id = populated
     packet = build_packet(store, AgentRequest(run_id=run_id, product="mindustry", message="test"))
-    base = {"mode": "answer", "summary": "小样本描述", "claims": [{"text": "样本量", "status": "supported", "fact_ids": ["recommendation.n"], "evidence_ids": []}], "metrics": [{"fact_id": "recommendation.n", "value": packet["facts"]["recommendation.n"]}], "tool_calls": [], "limitations": ["不能推断收入"], "next_actions": []}
+    base = {
+        "mode": "answer",
+        "summary": "小样本描述",
+        "claims": [
+            {
+                "text": "样本量",
+                "status": "supported",
+                "fact_ids": ["recommendation.n"],
+                "evidence_ids": [],
+            }
+        ],
+        "metrics": [{"fact_id": "recommendation.n", "value": packet["facts"]["recommendation.n"]}],
+        "tool_calls": [],
+        "limitations": ["不能推断收入"],
+        "next_actions": [],
+    }
     assert verify_answer(packet, AgentAnswer.model_validate(base))["status"] == "passed"
     base["metrics"][0]["value"] += 1
     base["claims"][0]["evidence_ids"] = ["fabricated-review"]
@@ -416,7 +453,10 @@ def test_agent_answer_rejects_hallucinated_metrics_and_references(populated):
 
 def test_agent_context_checks_raw_hash_before_prompting(populated):
     store, run_id = populated
-    page = store.query("SELECT p.* FROM pages p JOIN evidence e ON e.page_id=p.id WHERE e.run_id=? AND e.source='steam' LIMIT 1", (run_id,))[0]
+    page = store.query(
+        "SELECT p.* FROM pages p JOIN evidence e ON e.page_id=p.id WHERE e.run_id=? AND e.source='steam' LIMIT 1",
+        (run_id,),
+    )[0]
     (store.root / page["path"]).write_bytes(b"tampered")
     with pytest.raises(ValueError):
         build_packet(store, AgentRequest(run_id=run_id, product="mindustry", message="test"))
@@ -424,7 +464,9 @@ def test_agent_context_checks_raw_hash_before_prompting(populated):
 
 def test_agent_command_never_contains_user_prompt_or_shell_permission(monkeypatch, tmp_path):
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
-    (tmp_path / "config.toml").write_text('model="configured-model"\nmodel_reasoning_effort="high"\n', encoding="utf-8")
+    (tmp_path / "config.toml").write_text(
+        'model="configured-model"\nmodel_reasoning_effort="high"\n', encoding="utf-8"
+    )
     args = command_args(["codex"], tmp_path, tmp_path / "schema.json", tmp_path / "answer.json")
     assert "read-only" in args and "--ignore-user-config" in args
     assert "shell_tool" in args and "--dangerously-bypass-approvals-and-sandbox" not in args
@@ -444,6 +486,7 @@ def test_agent_inference_gate_stops_additional_queries(populated):
 def test_replay_mismatch_is_rejected_before_publication(populated, monkeypatch):
     store, original = populated
     from src.quality import pipeline
+
     calls = []
     monkeypatch.setattr(pipeline, "snapshot_fingerprint", lambda *args: "changed-caliber")
     monkeypatch.setattr(store, "complete", lambda *args: calls.append(args))
@@ -460,17 +503,24 @@ def test_replay_under_new_rules_recomputes_and_records_the_change(populated, mon
     monkeypatch.setattr(pipeline, "TAXONOMY_VERSION", "test-only-next-rules")
     report = replay(store, original)
     run = store.run(report["run_id"])
-    assert run["status"] == "completed" and report["fingerprint"] != store.run(original)["fingerprint"]
+    assert (
+        run["status"] == "completed" and report["fingerprint"] != store.run(original)["fingerprint"]
+    )
     assert run["config"]["recomputed_rules"]["to"]["taxonomy_version"] == "test-only-next-rules"
 
 
 def test_agent_default_query_includes_captured_final_second(populated):
     store, run_id = populated
     packet = build_packet(store, AgentRequest(run_id=run_id, product="mindustry", message="test"))
-    row = store.query("SELECT id FROM evidence WHERE run_id=? AND source='steam' LIMIT 1", (run_id,))[0]
+    row = store.query(
+        "SELECT id FROM evidence WHERE run_id=? AND source='steam' LIMIT 1", (run_id,)
+    )[0]
     # Boundary fault injection in tmp_path only, not a demonstration record.
     with store.connect() as conn:
-        conn.execute("UPDATE evidence SET created_at=? WHERE run_id=? AND id=?", (packet["as_of"], run_id, row["id"]))
+        conn.execute(
+            "UPDATE evidence SET created_at=? WHERE run_id=? AND id=?",
+            (packet["as_of"], run_id, row["id"]),
+        )
     trace = execute_tool(store, packet, agent_call(), 0)
     assert trace["result"]["total"] == packet["facts"]["recommendation.n"]
 

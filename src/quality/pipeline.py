@@ -243,19 +243,23 @@ def not_linked(source: str) -> dict:
 
 def sync(store: Store, run_id: str, requested: dict, collector_factory=Collector):
     end = utc_now().replace(microsecond=0)
-    games = Games(store)
-    keys = requested["products"] or [g["key"] for g in games.list()]
-    if not keys:
-        raise ValueError("还没有添加游戏")
-    config = {
-        **requested,
-        "products": keys,
-        # Each snapshot keeps the game definitions it was collected with.
-        "games": {key: games.get(key).model_dump() for key in keys},
-        "window_start": iso(end - timedelta(days=requested["days"])),
-        "window_end": iso(end),
-        "pipeline_version": "0.2.0",
-    }
+    try:
+        games = Games(store)
+        keys = requested["products"] or [g["key"] for g in games.list()]
+        if not keys:
+            raise ValueError("还没有添加游戏")
+        config = {
+            **requested,
+            "products": keys,
+            # Each snapshot keeps the game definitions it was collected with.
+            "games": {key: games.get(key).model_dump() for key in keys},
+            "window_start": iso(end - timedelta(days=requested["days"])),
+            "window_end": iso(end),
+            "pipeline_version": "0.2.0",
+        }
+    except Exception as exc:
+        store.fail(run_id, f"{type(exc).__name__}: {exc}")
+        raise
     with store.connect() as conn:
         conn.execute("UPDATE runs SET config_json=? WHERE id=?", (json.dumps(config), run_id))
     source_rows, coverage, identities = {}, {}, {}
