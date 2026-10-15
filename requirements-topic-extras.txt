@@ -1,4 +1,0 @@
-# 可选：BERTopic 主题建模对比实验（scripts/rerun_topics_bertopic.py）
-# 重依赖（sentence-transformers -> torch，约 2GB），主管线不需要。
-bertopic>=0.16.0
-sentence-transformers>=2.6.0
